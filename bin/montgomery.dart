@@ -23,9 +23,9 @@ class Montgomery {
   static final BigInt p = Curve256189Params.p;
   static final BigInt A = Curve256189Params.A;
 
-  // Konstanta Montgomery Ladder: a24 = (A - 2) / 4 mod p
+  // Konstanta Montgomery Ladder: a24 = (A + 2) / 4 mod p
   static final BigInt a24 =
-  FieldElement.mul(FieldElement.sub(A, BigInt.two), FieldElement.inv(BigInt.from(4)));
+  FieldElement.mul(FieldElement.add(A, BigInt.two), FieldElement.inv(BigInt.from(4)));
 
   // Cek apakah titik valid di kurva
   // y² = x³ + Ax² + x (mod p)
@@ -109,57 +109,46 @@ class Montgomery {
 
   // xDBL — projective doubling
   static List<BigInt> _xDBL(BigInt X, BigInt Z) {
-    final U = FieldElement.mul(
-      FieldElement.add(X, Z),
-      FieldElement.add(X, Z),
+    final BigInt A = Curve256189Params.A;
+
+    final BigInt X2 = FieldElement.mul(X, X);
+    final BigInt Z2 = FieldElement.mul(Z, Z);
+    final BigInt XZ = FieldElement.mul(X, Z);
+
+    final BigInt X3 = FieldElement.mul(
+        FieldElement.sub(X2, Z2),
+        FieldElement.sub(X2, Z2)
     );
-    final V = FieldElement.mul(
-      FieldElement.sub(X, Z),
-      FieldElement.sub(X, Z),
+
+    final BigInt temp = FieldElement.add(
+        FieldElement.add(X2, FieldElement.mul(A, XZ)),
+        Z2
     );
-    final Xp = FieldElement.mul(U, V);
-    final W = FieldElement.sub(U, V);
-    final Zp = FieldElement.mul(
-      W,
-      FieldElement.add(V, FieldElement.mul(a24, W)),
+    final BigInt Z3 = FieldElement.mul(
+        FieldElement.mul(BigInt.from(4), XZ),
+        temp
     );
-    return [Xp, Zp];
+
+    return [X3, Z3];
   }
 
-  // xADD — projective differential addition untuk Montgomery Ladder
-  // Input : (X0:Z0), (X1:Z1), xP (x-coordinate titik asal, affine)
-  // Output: (X':Z') = (X0:Z0) + (X1:Z1)
-  static List<BigInt> _xADD(BigInt X0, BigInt Z0, BigInt X1, BigInt Z1, BigInt xP) {
-    // U = (X0 - Z0)(X1 + Z1)
-    final U = FieldElement.mul(
-      FieldElement.sub(X0, Z0),
-      FieldElement.add(X1, Z1),
+  static List<BigInt> _xADD(BigInt Xp, BigInt Zp, BigInt Xq, BigInt Zq, BigInt x) {
+    final BigInt U = FieldElement.mul(
+        FieldElement.sub(Xp, Zp),
+        FieldElement.add(Xq, Zq)
     );
-    // V = (X0 + Z0)(X1 - Z1)
-    final V = FieldElement.mul(
-      FieldElement.add(X0, Z0),
-      FieldElement.sub(X1, Z1),
+    final BigInt V = FieldElement.mul(
+        FieldElement.add(Xp, Zp),
+        FieldElement.sub(Xq, Zq)
     );
-    // X' = (U + V)²
-    final Xp = FieldElement.mul(
-      FieldElement.add(U, V),
-      FieldElement.add(U, V),
-    );
-    // Z' = xP * (U - V)²
-    final Zp = FieldElement.mul(
-      xP,
-      FieldElement.mul(
-        FieldElement.sub(U, V),
-        FieldElement.sub(U, V),
-      ),
-    );
-    return [Xp, Zp];
+    final BigInt add = FieldElement.add(U, V);
+    final BigInt sub = FieldElement.sub(U, V);
+    final BigInt Xr = FieldElement.mul(add, add);
+    final BigInt Zr = FieldElement.mul(x, FieldElement.mul(sub, sub));
+    return [Xr, Zr];
   }
 
-  // Montgomery Ladder x-only — COMPLETE + CONSTANT-TIME
-  // (Bernstein 2006, sesuai SafeCurves)
   static BigInt ladderXOnly(BigInt k, BigInt xP) {
-    // R0 = infinity (1:0), R1 = P (xP:1)
     BigInt x0 = BigInt.one;
     BigInt z0 = BigInt.zero;
     BigInt x1 = xP;
@@ -171,17 +160,20 @@ class Montgomery {
       if (bit == BigInt.zero) {
         final xAdd = _xADD(x0, z0, x1, z1, xP);
         final xDbl = _xDBL(x0, z0);
-        x1 = xAdd[0]; z1 = xAdd[1];
-        x0 = xDbl[0]; z0 = xDbl[1];
+        x1 = xAdd[0];
+        z1 = xAdd[1];
+        x0 = xDbl[0];
+        z0 = xDbl[1];
       } else {
         final xAdd = _xADD(x0, z0, x1, z1, xP);
         final xDbl = _xDBL(x1, z1);
-        x0 = xAdd[0]; z0 = xAdd[1];
-        x1 = xDbl[0]; z1 = xDbl[1];
+        x0 = xAdd[0];
+        z0 = xAdd[1];
+        x1 = xDbl[0];
+        z1 = xDbl[1];
       }
     }
 
-    if (z0 == BigInt.zero) return BigInt.zero; // infinity
     return FieldElement.mul(x0, FieldElement.inv(z0));
   }
 
