@@ -33,13 +33,13 @@ class EdDSA {
   // Konversi bytes → BigInt (little-endian)
   static BigInt _bytesToBigInt(Uint8List bytes) {
     BigInt result = BigInt.zero;
-    for (int i = bytes.length - 1; i >= 0; i--) {
-      result = (result << 8) | BigInt.from(bytes[i]);
+    for (int i = 0; i < bytes.length; i++) {
+      result = result | (BigInt.from(bytes[i]) << (8 * i));
     }
     return result;
   }
 
-  // Encode titik Edwards → 32 bytes
+  // Encode titik Edwards → 33 bytes
   static Uint8List _encodePoint(EdwardsPoint P) {
     return TwistedEdwards.encodePoint(P);
   }
@@ -51,9 +51,9 @@ class EdDSA {
 
     // Clamp private key (32 bytes pertama)
     final skBytes = h.sublist(0, 32);
-    skBytes[0] &= 248;   // clear 3 bit terbawah
-    skBytes[31] &= 127;  // clear bit tertinggi
-    skBytes[31] |= 64;   // set bit kedua tertinggi
+    skBytes[0] &= 248;  // clear 3 bit terbawah
+    skBytes[31] &= 127; // clear bit tertinggi
+    skBytes[31] |= 64;  // set bit kedua tertinggi
 
     final sk = _bytesToBigInt(skBytes) % n;
 
@@ -96,38 +96,31 @@ class EdDSA {
     final S = (r + hInt * sk) % n;
     final sBytes = _bigIntToBytes(S);
 
-    // Signature = R || S (64 bytes)
+    // Signature = R(33) || S(32) = 65 bytes
     return Uint8List.fromList([...rBytes, ...sBytes]);
   }
 
   // Verify
   static bool verify(Uint8List message, Uint8List signature, Uint8List publicKeyBytes) {
-    if (signature.length != 64) return false;
+    if (signature.length != 65) return false; // 33 (R) + 32 (S)
 
-    // Decode R dan S dari signature
-    final rBytes = signature.sublist(0, 32);
-    final sBytes = signature.sublist(32, 64);
+    final rBytes = signature.sublist(0, 33);
+    final sBytes = signature.sublist(33, 65);
     final S = _bytesToBigInt(sBytes);
 
-    // S harus dalam range [0, n)
     if (S >= n) return false;
 
-    // Decode titik R dari signature
     final R = TwistedEdwards.decodePoint(rBytes);
     if (R == null) return false;
 
-    // Decode public key
     final pk = TwistedEdwards.decodePoint(publicKeyBytes);
     if (pk == null) return false;
 
-    // Verifikasi public key on curve
     if (!TwistedEdwards.isOnCurve(pk)) return false;
 
-    // Hash(R + pk + message)
     final hHash = _hash(Uint8List.fromList([...rBytes, ...publicKeyBytes, ...message]));
     final hInt = _bytesToBigInt(hHash) % n;
 
-    // Cek: S*G == R + h*pk
     final sg = TwistedEdwards.scalarMul(S, G);
     final hPk = TwistedEdwards.scalarMul(hInt, pk);
     final rhPk = TwistedEdwards.add(R, hPk);

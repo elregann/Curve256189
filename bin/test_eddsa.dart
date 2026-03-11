@@ -23,8 +23,8 @@ void main() {
   print('  Signature length: ${signature.length} bytes\n');
 
   // Test 3: Signature length valid?
-  print('Test 3 - Signature length == 64 bytes?');
-  print('  Valid? ${signature.length == 64}\n');
+  print('Test 3 - Signature length == 65 bytes?');
+  print('  Valid? ${signature.length == 65}\n');
 
   // Test 4: Sign pesan berbeda menghasilkan signature berbeda?
   print('Test 4 - Pesan berbeda = Signature berbeda?');

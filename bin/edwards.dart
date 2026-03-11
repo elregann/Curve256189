@@ -92,41 +92,46 @@ class TwistedEdwards {
     return EdwardsPoint(x3, y3);
   }
 
-  // Scalar multiplication
+  // Scalar multiplication — Montgomery Ladder (constant-time)
   static EdwardsPoint scalarMul(BigInt k, EdwardsPoint P) {
-    EdwardsPoint result = EdwardsPoint.infinity();
-    EdwardsPoint addend = P;
+    EdwardsPoint r0 = EdwardsPoint.infinity(); // titik netral (0,1)
+    EdwardsPoint r1 = P;
 
-    while (k > BigInt.zero) {
-      if (k.isOdd) {
-        result = add(result, addend);
+    // Proses dari bit tertinggi ke terendah
+    final bitLength = k.bitLength;
+    for (int i = bitLength - 1; i >= 0; i--) {
+      final bit = (k >> i) & BigInt.one;
+      if (bit == BigInt.zero) {
+        // bit = 0: r1 = r0 + r1, r0 = 2*r0
+        r1 = add(r0, r1);
+        r0 = add(r0, r0);
+      } else {
+        // bit = 1: r0 = r0 + r1, r1 = 2*r1
+        r0 = add(r0, r1);
+        r1 = add(r1, r1);
       }
-      addend = add(addend, addend);
-      k = k >> 1;
     }
 
-    return result;
+    return r0;
   }
 
-  // Point compression — encode titik ke 32 bytes (simpan y + 1 bit paritas x)
+  // Point compression — encode titik ke 33 bytes
+  // 32 bytes y (little-endian) + 1 byte paritas x
   static Uint8List encodePoint(EdwardsPoint P) {
-    final yBytes = _bigIntToBytes(P.y);
-    // Simpan paritas x di bit tertinggi byte terakhir
-    if (P.x.isOdd) {
-      yBytes[31] |= 0x80;
-    }
-    return yBytes;
+    final yBytes = _bigIntToBytes(P.y); // 32 bytes
+    final signByte = P.x.isOdd ? 1 : 0;
+    return Uint8List.fromList([...yBytes, signByte]); // 33 bytes
   }
 
-  // Point decompression — recover titik dari 32 bytes
+  // Point decompression — recover titik dari 33 bytes
   static EdwardsPoint? decodePoint(Uint8List bytes) {
-    final compressed = Uint8List.fromList(bytes);
+    if (bytes.length != 33) return null;
 
-    // Ambil bit paritas x dari bit tertinggi
-    final signX = (compressed[31] & 0x80) != 0;
-    compressed[31] &= 0x7f; // hapus bit paritas
+    // Ambil paritas x dari byte terakhir
+    final signX = bytes[32] == 1;
+    final yBytes = bytes.sublist(0, 32);
 
-    final y = _bytesToBigInt(compressed);
+    final y = _bytesToBigInt(yBytes);
     if (y >= p) return null;
 
     // Recover x² = (1 - y²) / (a - d*y²) mod p
@@ -153,7 +158,7 @@ class TwistedEdwards {
     return EdwardsPoint(x, y);
   }
 
-  // Helper — BigInt ke bytes little-endian 32 bytes
+  // Konversi BigInt → bytes (33 bytes, little-endian)
   static Uint8List _bigIntToBytes(BigInt value) {
     final bytes = Uint8List(32);
     var v = value;
@@ -167,8 +172,8 @@ class TwistedEdwards {
   // Helper — bytes little-endian ke BigInt
   static BigInt _bytesToBigInt(Uint8List bytes) {
     BigInt result = BigInt.zero;
-    for (int i = bytes.length - 1; i >= 0; i--) {
-      result = (result << 8) | BigInt.from(bytes[i]);
+    for (int i = 0; i < bytes.length; i++) {
+      result = result | (BigInt.from(bytes[i]) << (8 * i));
     }
     return result;
   }
