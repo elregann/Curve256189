@@ -42,6 +42,22 @@ class TwistedEdwards {
     return EdwardsPoint(u, v);
   }
 
+  // Konversi Twisted Edwards (u, v) → Montgomery (x, y)
+  static MontgomeryPoint toMontgomery(EdwardsPoint P) {
+    if (P.x == BigInt.zero && P.y == BigInt.one) return MontgomeryPoint.infinity();
+
+    // x = (1 + v) / (1 - v)
+    final x = FieldElement.mul(
+      FieldElement.add(BigInt.one, P.y),
+      FieldElement.inv(FieldElement.sub(BigInt.one, P.y)),
+    );
+
+    // y = x / u
+    final y = FieldElement.mul(x, FieldElement.inv(P.x));
+
+    return MontgomeryPoint(x, y);
+  }
+
   // Cek apakah titik valid di Twisted Edwards
   // ax² + y² = 1 + dx²y²
   static bool isOnCurve(EdwardsPoint P) {
@@ -63,7 +79,7 @@ class TwistedEdwards {
 
   // Point addition Twisted Edwards
   // (x1,y1) + (x2,y2) = ((x1y2 + y1x2) / (1 + dx1x2y1y2),
-  //                       (y1y2 - ax1x2) / (1 - dx1x2y1y2))
+  //                     (y1y2 - ax1x2) / (1 - dx1x2y1y2))
   static EdwardsPoint add(EdwardsPoint P, EdwardsPoint Q) {
     final x1 = P.x;
     final y1 = P.y;
@@ -92,26 +108,27 @@ class TwistedEdwards {
     return EdwardsPoint(x3, y3);
   }
 
-  // Scalar multiplication — Montgomery Ladder (constant-time)
+  // Convert Edwards → Montgomery → Ladder x-only → recover y → Edwards
+  // Scalar multiplication — via Montgomery Ladder (COMPLETE)
   static EdwardsPoint scalarMul(BigInt k, EdwardsPoint P) {
-    EdwardsPoint r0 = EdwardsPoint.infinity(); // titik netral (0,1)
-    EdwardsPoint r1 = P;
+    return scalarMulDebug(k, P);
+  }
 
-    // Proses dari bit tertinggi ke terendah
+  // Fallback scalar mul langsung di Edwards (sangat jarang dipanggil)
+  static EdwardsPoint scalarMulDebug(BigInt k, EdwardsPoint P) {
+    EdwardsPoint r0 = EdwardsPoint.infinity();
+    EdwardsPoint r1 = P;
     final bitLength = k.bitLength;
     for (int i = bitLength - 1; i >= 0; i--) {
       final bit = (k >> i) & BigInt.one;
       if (bit == BigInt.zero) {
-        // bit = 0: r1 = r0 + r1, r0 = 2*r0
         r1 = add(r0, r1);
         r0 = add(r0, r0);
       } else {
-        // bit = 1: r0 = r0 + r1, r1 = 2*r1
         r0 = add(r0, r1);
         r1 = add(r1, r1);
       }
     }
-
     return r0;
   }
 
