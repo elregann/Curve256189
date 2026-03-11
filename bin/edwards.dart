@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'field.dart';
 import 'montgomery.dart';
 import 'params.dart';
@@ -104,6 +105,71 @@ class TwistedEdwards {
       k = k >> 1;
     }
 
+    return result;
+  }
+
+  // Point compression — encode titik ke 32 bytes (simpan y + 1 bit paritas x)
+  static Uint8List encodePoint(EdwardsPoint P) {
+    final yBytes = _bigIntToBytes(P.y);
+    // Simpan paritas x di bit tertinggi byte terakhir
+    if (P.x.isOdd) {
+      yBytes[31] |= 0x80;
+    }
+    return yBytes;
+  }
+
+  // Point decompression — recover titik dari 32 bytes
+  static EdwardsPoint? decodePoint(Uint8List bytes) {
+    final compressed = Uint8List.fromList(bytes);
+
+    // Ambil bit paritas x dari bit tertinggi
+    final signX = (compressed[31] & 0x80) != 0;
+    compressed[31] &= 0x7f; // hapus bit paritas
+
+    final y = _bytesToBigInt(compressed);
+    if (y >= p) return null;
+
+    // Recover x² = (1 - y²) / (a - d*y²) mod p
+    final y2 = FieldElement.mul(y, y);
+    final numerator = FieldElement.sub(BigInt.one, y2);
+    final denominator = FieldElement.sub(
+      a,
+      FieldElement.mul(d, y2),
+    );
+    final x2 = FieldElement.mul(numerator, FieldElement.inv(denominator));
+
+    // Square root: x = x²^((p+1)/4) mod p
+    final exp = (p + BigInt.one) >> 2;
+    var x = x2.modPow(exp, p);
+
+    // Verifikasi square root valid
+    if (FieldElement.mul(x, x) != x2) return null;
+
+    // Pilih x yang paritasnya sesuai
+    if (x.isOdd != signX) {
+      x = FieldElement.sub(BigInt.zero, x);
+    }
+
+    return EdwardsPoint(x, y);
+  }
+
+  // Helper — BigInt ke bytes little-endian 32 bytes
+  static Uint8List _bigIntToBytes(BigInt value) {
+    final bytes = Uint8List(32);
+    var v = value;
+    for (int i = 0; i < 32; i++) {
+      bytes[i] = (v & BigInt.from(0xff)).toInt();
+      v = v >> 8;
+    }
+    return bytes;
+  }
+
+  // Helper — bytes little-endian ke BigInt
+  static BigInt _bytesToBigInt(Uint8List bytes) {
+    BigInt result = BigInt.zero;
+    for (int i = bytes.length - 1; i >= 0; i--) {
+      result = (result << 8) | BigInt.from(bytes[i]);
+    }
     return result;
   }
 }
