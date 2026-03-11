@@ -23,12 +23,11 @@ class Montgomery {
   static final BigInt p = Curve256189Params.p;
   static final BigInt A = Curve256189Params.A;
 
-  // Konstanta Montgomery Ladder: a24 = (A + 2) / 4 mod p
+  // Optimized constant: a24 = (A + 2) / 4 mod p
   static final BigInt a24 =
   FieldElement.mul(FieldElement.add(A, BigInt.two), FieldElement.inv(BigInt.from(4)));
 
-  // Cek apakah titik valid di kurva
-  // y² = x³ + Ax² + x (mod p)
+  // Point validation: y² = x³ + Ax² + x
   static bool isOnCurve(MontgomeryPoint point) {
     if (point.isInfinity) return true;
     final x = point.x;
@@ -44,7 +43,7 @@ class Montgomery {
     return left == right;
   }
 
-  // Point addition
+  // Affine point addition
   static MontgomeryPoint add(MontgomeryPoint P, MontgomeryPoint Q) {
     if (P.isInfinity) return Q;
     if (Q.isInfinity) return P;
@@ -53,12 +52,12 @@ class Montgomery {
       return double_(P);
     }
 
-    // lambda = (y2 - y1) / (x2 - x1)
+    // Slope: lambda = (y2 - y1) / (x2 - x1)
     final dy = FieldElement.sub(Q.y, P.y);
     final dx = FieldElement.sub(Q.x, P.x);
     final lambda = FieldElement.mul(dy, FieldElement.inv(dx));
 
-    // x3 = lambda² - A - x1 - x2
+    // Result x: x3 = lambda² - A - x1 - x2
     final x3 = FieldElement.sub(
       FieldElement.sub(
         FieldElement.sub(FieldElement.mul(lambda, lambda), A),
@@ -67,7 +66,7 @@ class Montgomery {
       Q.x,
     );
 
-    // y3 = lambda(x1 - x3) - y1
+    // Result y: y3 = lambda(x1 - x3) - y1
     final y3 = FieldElement.sub(
       FieldElement.mul(lambda, FieldElement.sub(P.x, x3)),
       P.y,
@@ -76,11 +75,11 @@ class Montgomery {
     return MontgomeryPoint(x3, y3);
   }
 
-  // Point doubling
+  // Affine point doubling
   static MontgomeryPoint double_(MontgomeryPoint P) {
     if (P.isInfinity) return P;
 
-    // lambda = (3x² + 2Ax + 1) / (2y)
+    // Slope: lambda = (3x² + 2Ax + 1) / (2y)
     final x2 = FieldElement.mul(P.x, P.x);
     final numerator = FieldElement.add(
       FieldElement.add(
@@ -92,13 +91,13 @@ class Montgomery {
     final denominator = FieldElement.mul(BigInt.two, P.y);
     final lambda = FieldElement.mul(numerator, FieldElement.inv(denominator));
 
-    // x3 = lambda² - A - 2x
+    // Result x: x3 = lambda² - A - 2x
     final x3 = FieldElement.sub(
       FieldElement.sub(FieldElement.mul(lambda, lambda), A),
       FieldElement.mul(BigInt.two, P.x),
     );
 
-    // y3 = lambda(x - x3) - y
+    // Result y: y3 = lambda(x - x3) - y
     final y3 = FieldElement.sub(
       FieldElement.mul(lambda, FieldElement.sub(P.x, x3)),
       P.y,
@@ -107,7 +106,7 @@ class Montgomery {
     return MontgomeryPoint(x3, y3);
   }
 
-  // xDBL — projective doubling
+  // Projective doubling (X:Z)
   static List<BigInt> _xDBL(BigInt X, BigInt Z) {
     final BigInt A = Curve256189Params.A;
 
@@ -132,6 +131,7 @@ class Montgomery {
     return [X3, Z3];
   }
 
+  // Differential addition (X:Z)
   static List<BigInt> _xADD(BigInt Xp, BigInt Zp, BigInt Xq, BigInt Zq, BigInt x) {
     final BigInt U = FieldElement.mul(
         FieldElement.sub(Xp, Zp),
@@ -148,6 +148,7 @@ class Montgomery {
     return [Xr, Zr];
   }
 
+  // Montgomery Ladder (X-only scalar multiplication)
   static BigInt ladderXOnly(BigInt k, BigInt xP) {
     BigInt x0 = BigInt.one;
     BigInt z0 = BigInt.zero;
@@ -177,8 +178,7 @@ class Montgomery {
     return FieldElement.mul(x0, FieldElement.inv(z0));
   }
 
-  // Scalar multiplication — menggunakan Montgomery Ladder x-only
-  // lalu recover y dari persamaan kurva
+  // Scalar multiplication with Y-recovery
   static MontgomeryPoint scalarMul(BigInt k, MontgomeryPoint P) {
     if (P.isInfinity) return MontgomeryPoint.infinity();
     if (k == BigInt.zero) return MontgomeryPoint.infinity();
@@ -187,7 +187,7 @@ class Montgomery {
     final xR = ladderXOnly(k, P.x);
     if (xR == BigInt.zero) return MontgomeryPoint.infinity();
 
-    // Step 2: Recover y dari y² = x³ + Ax² + x
+    // Step 2: Recover y from y² = x³ + Ax² + x
     final x2 = FieldElement.mul(xR, xR);
     final x3 = FieldElement.mul(xR, x2);
     final rhs = FieldElement.add(
@@ -195,16 +195,16 @@ class Montgomery {
       xR,
     );
 
-    // y = rhs^((p+1)/4) karena p ≡ 3 mod 4
+    // Quadratic residue: y = rhs^((p+1)/4)
     final exp = (p + BigInt.one) >> 2;
     var yR = rhs.modPow(exp, p);
 
-    // Kalau sqrt gagal → titik berorder 2 atau infinity
+    // Verify y coordinate validity
     if (FieldElement.mul(yR, yR) != rhs) {
       return MontgomeryPoint.infinity();
     }
 
-    // Pilih y genap sebagai canonical form
+    // Canonical form: Y-parity control
     if (yR.isOdd) {
       yR = FieldElement.sub(BigInt.zero, yR);
     }
