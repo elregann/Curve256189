@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'field.dart';
 import 'params.dart';
 
@@ -67,6 +68,13 @@ class Montgomery {
     if (P.x == _lowOrderX4) return false;
 
     return true;
+  }
+
+  // Scalar blinding: k' = k + r*n
+  // Protects private key from timing attacks via randomized scalar
+  // Result: ladderXOnly(k', P) == ladderXOnly(k, P) since r*n*G = infinity
+  static BigInt blindScalar(BigInt k, BigInt r) {
+    return k + r * Curve256189Params.n;
   }
 
   // Affine point addition
@@ -175,14 +183,18 @@ class Montgomery {
 
   // Montgomery Ladder (X-only scalar multiplication)
   static BigInt ladderXOnly(BigInt k, BigInt xP) {
+    // Scalar blinding — new random r per call via cryptographic RNG
+    final r = BigInt.from(Random.secure().nextInt(0xFFFFFFFF));
+    final kBlind = blindScalar(k, r);
+
     BigInt x0 = BigInt.one;
     BigInt z0 = BigInt.zero;
     BigInt x1 = xP;
     BigInt z1 = BigInt.one;
 
-    final int bitLen = k.bitLength;
+    final int bitLen = kBlind.bitLength;
     for (int i = bitLen - 1; i >= 0; i--) {
-      final bit = (k >> i) & BigInt.one;
+      final bit = (kBlind >> i) & BigInt.one;
       if (bit == BigInt.zero) {
         final xAdd = _xADD(x0, z0, x1, z1, xP);
         final xDbl = _xDBL(x0, z0);
