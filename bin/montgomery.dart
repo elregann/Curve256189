@@ -44,108 +44,107 @@ class Montgomery {
   }
 
   // Affine point addition
-  static MontgomeryPoint add(MontgomeryPoint P, MontgomeryPoint Q) {
-    if (P.isInfinity) return Q;
-    if (Q.isInfinity) return P;
-    if (P.x == Q.x) {
-      if (P.y != Q.y) return MontgomeryPoint.infinity();
-      return double_(P);
+  static MontgomeryPoint add(MontgomeryPoint p, MontgomeryPoint q) {
+    if (p.isInfinity) return q;
+    if (q.isInfinity) return p;
+    if (p.x == q.x) {
+      if (p.y != q.y) return MontgomeryPoint.infinity();
+      return double_(p);
     }
 
     // Slope: lambda = (y2 - y1) / (x2 - x1)
-    final dy = FieldElement.sub(Q.y, P.y);
-    final dx = FieldElement.sub(Q.x, P.x);
+    final dy = FieldElement.sub(q.y, p.y);
+    final dx = FieldElement.sub(q.x, p.x);
     final lambda = FieldElement.mul(dy, FieldElement.inv(dx));
 
     // Result x: x3 = lambda² - A - x1 - x2
     final x3 = FieldElement.sub(
       FieldElement.sub(
         FieldElement.sub(FieldElement.mul(lambda, lambda), A),
-        P.x,
+        p.x,
       ),
-      Q.x,
+      q.x,
     );
 
     // Result y: y3 = lambda(x1 - x3) - y1
     final y3 = FieldElement.sub(
-      FieldElement.mul(lambda, FieldElement.sub(P.x, x3)),
-      P.y,
+      FieldElement.mul(lambda, FieldElement.sub(p.x, x3)),
+      p.y,
     );
 
     return MontgomeryPoint(x3, y3);
   }
 
   // Affine point doubling
-  static MontgomeryPoint double_(MontgomeryPoint P) {
-    if (P.isInfinity) return P;
+  static MontgomeryPoint double_(MontgomeryPoint p) {
+    if (p.isInfinity) return p;
 
     // Slope: lambda = (3x² + 2Ax + 1) / (2y)
-    final x2 = FieldElement.mul(P.x, P.x);
+    final x2 = FieldElement.mul(p.x, p.x);
     final numerator = FieldElement.add(
       FieldElement.add(
         FieldElement.mul(BigInt.from(3), x2),
-        FieldElement.mul(BigInt.two * A, P.x),
+        FieldElement.mul(BigInt.two * A, p.x),
       ),
       BigInt.one,
     );
-    final denominator = FieldElement.mul(BigInt.two, P.y);
+    final denominator = FieldElement.mul(BigInt.two, p.y);
     final lambda = FieldElement.mul(numerator, FieldElement.inv(denominator));
 
     // Result x: x3 = lambda² - A - 2x
     final x3 = FieldElement.sub(
       FieldElement.sub(FieldElement.mul(lambda, lambda), A),
-      FieldElement.mul(BigInt.two, P.x),
+      FieldElement.mul(BigInt.two, p.x),
     );
 
     // Result y: y3 = lambda(x - x3) - y
     final y3 = FieldElement.sub(
-      FieldElement.mul(lambda, FieldElement.sub(P.x, x3)),
-      P.y,
+      FieldElement.mul(lambda, FieldElement.sub(p.x, x3)),
+      p.y,
     );
 
     return MontgomeryPoint(x3, y3);
   }
 
   // Projective doubling (X:Z)
-  static List<BigInt> _xDBL(BigInt X, BigInt Z) {
-    final BigInt A = Curve256189Params.A;
+  static List<BigInt> _xDBL(BigInt xCoord, BigInt zCoord) {
+    final x2 = FieldElement.mul(xCoord, xCoord);
+    final z2 = FieldElement.mul(zCoord, zCoord);
+    final xz = FieldElement.mul(xCoord, zCoord);
 
-    final BigInt X2 = FieldElement.mul(X, X);
-    final BigInt Z2 = FieldElement.mul(Z, Z);
-    final BigInt XZ = FieldElement.mul(X, Z);
-
-    final BigInt X3 = FieldElement.mul(
-        FieldElement.sub(X2, Z2),
-        FieldElement.sub(X2, Z2)
+    final xOut = FieldElement.mul(
+      FieldElement.sub(x2, z2),
+      FieldElement.sub(x2, z2),
     );
 
-    final BigInt temp = FieldElement.add(
-        FieldElement.add(X2, FieldElement.mul(A, XZ)),
-        Z2
+    final temp = FieldElement.add(
+      FieldElement.add(x2, FieldElement.mul(A, xz)),
+      z2,
     );
-    final BigInt Z3 = FieldElement.mul(
-        FieldElement.mul(BigInt.from(4), XZ),
-        temp
+    final zOut = FieldElement.mul(
+      FieldElement.mul(BigInt.from(4), xz),
+      temp,
     );
 
-    return [X3, Z3];
+    return [xOut, zOut];
   }
 
   // Differential addition (X:Z)
-  static List<BigInt> _xADD(BigInt Xp, BigInt Zp, BigInt Xq, BigInt Zq, BigInt x) {
-    final BigInt U = FieldElement.mul(
-        FieldElement.sub(Xp, Zp),
-        FieldElement.add(Xq, Zq)
+  static List<BigInt> _xADD(
+      BigInt xp, BigInt zp, BigInt xq, BigInt zq, BigInt x) {
+    final u = FieldElement.mul(
+      FieldElement.sub(xp, zp),
+      FieldElement.add(xq, zq),
     );
-    final BigInt V = FieldElement.mul(
-        FieldElement.add(Xp, Zp),
-        FieldElement.sub(Xq, Zq)
+    final v = FieldElement.mul(
+      FieldElement.add(xp, zp),
+      FieldElement.sub(xq, zq),
     );
-    final BigInt add = FieldElement.add(U, V);
-    final BigInt sub = FieldElement.sub(U, V);
-    final BigInt Xr = FieldElement.mul(add, add);
-    final BigInt Zr = FieldElement.mul(x, FieldElement.mul(sub, sub));
-    return [Xr, Zr];
+    final sum = FieldElement.add(u, v);
+    final diff = FieldElement.sub(u, v);
+    final xr = FieldElement.mul(sum, sum);
+    final zr = FieldElement.mul(x, FieldElement.mul(diff, diff));
+    return [xr, zr];
   }
 
   // Montgomery Ladder (X-only scalar multiplication)
@@ -179,12 +178,12 @@ class Montgomery {
   }
 
   // Scalar multiplication with Y-recovery
-  static MontgomeryPoint scalarMul(BigInt k, MontgomeryPoint P) {
-    if (P.isInfinity) return MontgomeryPoint.infinity();
+  static MontgomeryPoint scalarMul(BigInt k, MontgomeryPoint p) {
+    if (p.isInfinity) return MontgomeryPoint.infinity();
     if (k == BigInt.zero) return MontgomeryPoint.infinity();
 
     // Step 1: Ladder x-only
-    final xR = ladderXOnly(k, P.x);
+    final xR = ladderXOnly(k, p.x);
     if (xR == BigInt.zero) return MontgomeryPoint.infinity();
 
     // Step 2: Recover y from y² = x³ + Ax² + x
@@ -196,8 +195,8 @@ class Montgomery {
     );
 
     // Quadratic residue: y = rhs^((p+1)/4)
-    final exp = (p + BigInt.one) >> 2;
-    var yR = rhs.modPow(exp, p);
+    final exp = (Montgomery.p + BigInt.one) >> 2;
+    var yR = FieldElement.pow(rhs, exp);
 
     // Verify y coordinate validity
     if (FieldElement.mul(yR, yR) != rhs) {

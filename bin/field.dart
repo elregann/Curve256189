@@ -19,13 +19,40 @@ class FieldElement {
     return (a * b) % p;
   }
 
-  // Modular inversion via Fermat's Little Theorem: a^(p-2) mod p
+  // Modular inversion via Extended Euclidean Algorithm
+  // Note: Dart BigInt.modPow has precision issues for 256-bit numbers
   static BigInt inv(BigInt a) {
-    return a.modPow(p - BigInt.two, p);
+    BigInt oldR = a, r = p;
+    BigInt oldS = BigInt.one, s = BigInt.zero;
+    while (r != BigInt.zero) {
+      final q = oldR ~/ r;
+      final tempR = r;
+      r = oldR - q * r;
+      oldR = tempR;
+      final tempS = s;
+      s = oldS - q * s;
+      oldS = tempS;
+    }
+    return ((oldS % p) + p) % p;
   }
 
-  // Modular exponentiation a^exp mod p
+  // Safe modular exponentiation via square-and-multiply
+  // Replaces Dart BigInt.modPow due to precision issues with 256-bit numbers
   static BigInt pow(BigInt a, BigInt exp) {
-    return a.modPow(exp, p);
+    BigInt result = BigInt.one;
+    BigInt base = a % p;
+    BigInt e = exp;
+    while (e > BigInt.zero) {
+      if (e.isOdd) result = (result * base) % p;
+      e = e >> 1;
+      base = (base * base) % p;
+    }
+    return result;
+  }
+
+  // Modular inversion with inv0(0) = 0 per RFC 9380
+  static BigInt inv0(BigInt a) {
+    if (a == BigInt.zero) return BigInt.zero;
+    return inv(a);
   }
 }

@@ -125,13 +125,13 @@ class TwistedEdwards {
       xR,
     );
     final exp = (p + BigInt.one) >> 2;
-    var yR = rhs.modPow(exp, p);
+    var yR = FieldElement.pow(rhs, exp);
 
     if (FieldElement.mul(yR, yR) != rhs) {
       return _scalarMulFallback(k, P);
     }
 
-    // Canonical y: pilih genap
+    // Canonical y: choose even
     if (yR.isOdd) yR = FieldElement.sub(BigInt.zero, yR);
 
     // Montgomery → Edwards
@@ -184,7 +184,7 @@ class TwistedEdwards {
 
     // Square root: x = x²^((p+1)/4)
     final exp = (p + BigInt.one) >> 2;
-    var x = x2.modPow(exp, p);
+    var x = FieldElement.pow(x2, exp);
 
     if (FieldElement.mul(x, x) != x2) return null;
 
