@@ -1,5 +1,5 @@
-import '../bin/params.dart';
-import '../bin/edwards.dart';
+import 'src/params.dart';
+import 'src/edwards.dart';
 
 void main() {
   print("--- 🔬 EDWARDS COMPLETENESS STRESS TEST ---");

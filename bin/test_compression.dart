@@ -1,5 +1,5 @@
-import 'edwards.dart';
-import 'montgomery.dart';
+import 'src/edwards.dart';
+import 'src/montgomery.dart';
 
 void main() {
   print('=== Test Point Compression & Decompression ===\n');

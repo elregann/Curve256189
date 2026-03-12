@@ -1,5 +1,5 @@
-import 'montgomery.dart';
-import 'params.dart';
+import 'src/montgomery.dart';
+import 'src/params.dart';
 
 void main() {
   print('=== Test Montgomery Operations ===\n');

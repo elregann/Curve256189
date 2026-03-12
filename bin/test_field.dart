@@ -1,5 +1,5 @@
-import 'field.dart';
-import 'params.dart';
+import 'src/field.dart';
+import 'src/params.dart';
 
 void main() {
   print('=== Test Field Operations ===\n');

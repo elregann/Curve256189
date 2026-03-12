@@ -1,9 +1,9 @@
 import 'dart:typed_data';
-import 'params.dart';
-import 'field.dart';
-import 'montgomery.dart';
-import 'edwards.dart';
-import 'eddsa.dart';
+import 'src/params.dart';
+import 'src/field.dart';
+import 'src/montgomery.dart';
+import 'src/edwards.dart';
+import 'src/eddsa.dart';
 
 void main() {
   print("--- 🛡️ CURVE256189 DEEP DIAGNOSTIC AUDIT ---");

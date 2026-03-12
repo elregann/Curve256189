@@ -1,5 +1,5 @@
 import 'dart:typed_data';
-import 'hfe.dart';
+import 'src/hfe.dart';
 
 void main() {
   // Seed test

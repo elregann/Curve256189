@@ -1,8 +1,8 @@
 // test_modpow.dart
-import 'montgomery.dart';
-import 'edwards.dart';
-import 'params.dart';
-import 'field.dart';
+import 'src/montgomery.dart';
+import 'src/edwards.dart';
+import 'src/params.dart';
+import 'src/field.dart';
 
 BigInt modPowSafe(BigInt base, BigInt exp, BigInt mod) {
   BigInt result = BigInt.one;
