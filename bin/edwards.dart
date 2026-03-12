@@ -103,6 +103,11 @@ class TwistedEdwards {
       FieldElement.inv(FieldElement.sub(BigInt.one, dx1x2y1y2)),
     );
 
+    if (y3.isOdd) {
+      final negY = FieldElement.sub(BigInt.zero, y3);
+      final negX = FieldElement.sub(BigInt.zero, x3);
+      return EdwardsPoint(negX, negY);
+    }
     return EdwardsPoint(x3, y3);
   }
 

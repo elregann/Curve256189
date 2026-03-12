@@ -3,6 +3,8 @@ import 'package:crypto/crypto.dart';
 import 'edwards.dart';
 import 'montgomery.dart';
 import 'params.dart';
+import 'hfe.dart';
+import 'field.dart';
 
 class EdDSA {
   static final BigInt p = Curve256189Params.p;
@@ -53,7 +55,16 @@ class EdDSA {
     skBytes[31] &= 127;
     skBytes[31] |= 64;
 
-    final sk = _bytesToBigInt(skBytes) % n;
+    final skRaw = _bytesToBigInt(skBytes) % n;
+    final constants = HFE.deriveConstants(seed);
+    final sk = HFE.wrap(
+      skRaw,
+      constants['a']!,
+      constants['b']!,
+      constants['c']!,
+      constants['d']!,
+      constants['coeff']!,
+    );
 
     // Public key computation: pk = sk * G
     final pk = TwistedEdwards.scalarMul(sk, G);
@@ -73,7 +84,17 @@ class EdDSA {
     skBytes[0] &= 248;
     skBytes[31] &= 127;
     skBytes[31] |= 64;
-    final sk = _bytesToBigInt(skBytes) % n;
+
+    final skRaw = _bytesToBigInt(skBytes) % n;
+    final constants = HFE.deriveConstants(privateKey);
+    final sk = HFE.wrap(
+      skRaw,
+      constants['a']!,
+      constants['b']!,
+      constants['c']!,
+      constants['d']!,
+      constants['coeff']!,
+    );
 
     // Generate public key for hashing
     final pkPoint = TwistedEdwards.scalarMul(sk, G);
@@ -99,6 +120,9 @@ class EdDSA {
   }
 
   // Verify EdDSA signature validity
+  // Uses Montgomery x-only arithmetic to avoid Edwards add() canonical y issues
+  // Verification equation: S*G == R + hash(R || pk || message) * pk
+  // Implemented via Montgomery affine add with both y-candidate combinations
   static bool verify(Uint8List message, Uint8List signature, Uint8List publicKeyBytes) {
     if (signature.length != 65) return false;
 
@@ -108,7 +132,7 @@ class EdDSA {
 
     if (S >= n) return false;
 
-    // Decode R point and public key
+    // Decode R point and public key from compressed bytes
     final R = TwistedEdwards.decodePoint(rBytes);
     if (R == null) return false;
 
@@ -117,14 +141,35 @@ class EdDSA {
 
     if (!TwistedEdwards.isOnCurve(pk)) return false;
 
-    // Verification: S * G == R + hash(R + pk + message) * pk
+    // Compute challenge hash: h = SHA512(R || pk || message) mod n
     final hHash = _hash(Uint8List.fromList([...rBytes, ...publicKeyBytes, ...message]));
     final hInt = _bytesToBigInt(hHash) % n;
 
-    final sg = TwistedEdwards.scalarMul(S, G);
-    final hPk = TwistedEdwards.scalarMul(hInt, pk);
-    final rhPk = TwistedEdwards.add(R, hPk);
+    // Compute S*G and h*pk via Montgomery x-only ladder
+    final sgX = Montgomery.ladderXOnly(S, MontgomeryPoint.G.x);
+    final pkMontX = TwistedEdwards.toMontgomery(pk).x;
+    final hPkX = Montgomery.ladderXOnly(hInt, pkMontX);
+    final rMontX = TwistedEdwards.toMontgomery(R).x;
 
-    return sg.x == rhPk.x && sg.y == rhPk.y;
+    // Recover y candidates from Montgomery curve equation: y² = x³ + Ax² + x
+    BigInt recoverY(BigInt x) {
+      final x2 = (x * x) % p;
+      final x3 = (x * x2) % p;
+      final rhs = (x3 + Montgomery.A * x2 + x) % p;
+      final exp = (p + BigInt.one) >> 2;
+      return rhs.modPow(exp, p);
+    }
+
+    // Try both y-candidate combinations for R and h*pk
+    // Valid signature satisfies one of: (rY, hYn) or (rYn, hY)
+    final rY  = recoverY(rMontX);
+    final rYn = FieldElement.sub(BigInt.zero, rY);
+    final hY  = recoverY(hPkX);
+    final hYn = FieldElement.sub(BigInt.zero, hY);
+
+    final s2 = Montgomery.add(MontgomeryPoint(rMontX, rY),  MontgomeryPoint(hPkX, hYn)).x;
+    final s3 = Montgomery.add(MontgomeryPoint(rMontX, rYn), MontgomeryPoint(hPkX, hY)).x;
+
+    return s2 == sgX || s3 == sgX;
   }
 }
