@@ -43,6 +43,32 @@ class Montgomery {
     return left == right;
   }
 
+  // Low-order point x-coordinates (derived from cofactor h=4)
+  // Order 2: x = 0 (point (0,0))
+  // Order 4: x = p-1
+  static final BigInt _lowOrderX2 = BigInt.zero;
+  static final BigInt _lowOrderX4 = p - BigInt.one;
+
+  // Full point validation for external inputs
+  // Rejects infinity, out-of-range, off-curve, and low-order points
+  static bool isValidPoint(MontgomeryPoint P) {
+    // Check 1: not infinity
+    if (P.isInfinity) return false;
+
+    // Check 2: coordinates in valid range (0 < x < p)
+    if (P.x <= BigInt.zero || P.x >= p) return false;
+    if (P.y <= BigInt.zero || P.y >= p) return false;
+
+    // Check 3: point lies on curve y² = x³ + Ax² + x
+    if (!isOnCurve(P)) return false;
+
+    // Check 4: reject low-order points (small subgroup attack prevention)
+    if (P.x == _lowOrderX2) return false;
+    if (P.x == _lowOrderX4) return false;
+
+    return true;
+  }
+
   // Affine point addition
   static MontgomeryPoint add(MontgomeryPoint p, MontgomeryPoint q) {
     if (p.isInfinity) return q;
