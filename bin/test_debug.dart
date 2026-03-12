@@ -4,20 +4,20 @@ import 'montgomery.dart';
 
 void main() {
   final G = TwistedEdwards.fromMontgomery(MontgomeryPoint.G);
-  print('G_ed.x = ${G.x}');
-  print('G_ed.y = ${G.y}');
 
-  // Convert balik ke Montgomery
+  // Round-trip test
   final G_mont = TwistedEdwards.toMontgomery(G);
-  print('G_mont.x = ${G_mont.x}');
-  print('G_mont.y = ${G_mont.y}');
-  print('G_mont == G? ${G_mont.x == MontgomeryPoint.G.x && G_mont.y == MontgomeryPoint.G.y}');
+  print('G round-trip ok? ${G_mont.x == MontgomeryPoint.G.x}');
 
-  // scalarMulDebug vs scalarMul
-  final k = BigInt.from(3);
-  final r1 = TwistedEdwards.scalarMul(k, G);
-  final r2 = TwistedEdwards.scalarMulDebug(k, G);
-  print('scalarMul 3G.x    = ${r1.x}');
-  print('scalarMulDebug 3G.x = ${r2.x}');
-  print('sama? ${r1.x == r2.x && r1.y == r2.y}');
+  // scalarMul correctness via Montgomery x
+  final s3G = TwistedEdwards.scalarMul(BigInt.from(3), G);
+  final s4G = TwistedEdwards.scalarMul(BigInt.from(4), G);
+  final a4G = Montgomery.add(Montgomery.double_(MontgomeryPoint.G), Montgomery.double_(MontgomeryPoint.G));
+
+  print('3G on curve? ${TwistedEdwards.isOnCurve(s3G)}');
+  print('4G on curve? ${TwistedEdwards.isOnCurve(s4G)}');
+  print('scalarMul(3G) mont.x = ${TwistedEdwards.toMontgomery(s3G).x}');
+  print('scalarMul(4G) mont.x = ${TwistedEdwards.toMontgomery(s4G).x}');
+  print('affine 4G mont.x     = ${a4G.x}');
+  print('4G match? ${TwistedEdwards.toMontgomery(s4G).x == a4G.x}');
 }

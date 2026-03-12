@@ -108,11 +108,38 @@ class TwistedEdwards {
 
   // Standard scalar multiplication (interface for Montgomery Ladder conversion)
   static EdwardsPoint scalarMul(BigInt k, EdwardsPoint P) {
-    return scalarMulDebug(k, P);
+    if (k == BigInt.zero) return EdwardsPoint.infinity();
+
+    // Edwards → Montgomery
+    final montP = toMontgomery(P);
+
+    // Montgomery Ladder x-only (complete + constant-time)
+    final xR = Montgomery.ladderXOnly(k, montP.x);
+    if (xR == BigInt.zero) return EdwardsPoint.infinity();
+
+    // Recover y dari y² = x³ + Ax² + x
+    final x2 = FieldElement.mul(xR, xR);
+    final x3 = FieldElement.mul(xR, x2);
+    final rhs = FieldElement.add(
+      FieldElement.add(x3, FieldElement.mul(A, x2)),
+      xR,
+    );
+    final exp = (p + BigInt.one) >> 2;
+    var yR = rhs.modPow(exp, p);
+
+    if (FieldElement.mul(yR, yR) != rhs) {
+      return _scalarMulFallback(k, P);
+    }
+
+    // Canonical y: pilih genap
+    if (yR.isOdd) yR = FieldElement.sub(BigInt.zero, yR);
+
+    // Montgomery → Edwards
+    return fromMontgomery(MontgomeryPoint(xR, yR));
   }
 
   // Double-and-Add implementation for fallback/verification
-  static EdwardsPoint scalarMulDebug(BigInt k, EdwardsPoint P) {
+  static EdwardsPoint _scalarMulFallback(BigInt k, EdwardsPoint P) {
     EdwardsPoint r0 = EdwardsPoint.infinity();
     EdwardsPoint r1 = P;
     final bitLength = k.bitLength;
