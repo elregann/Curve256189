@@ -4,7 +4,7 @@
 // # Curve     : Curve256189 (Montgomery) / Ed256189 (Edwards) / X256189 (ECDH)
 // # Equation  : y² = x³ + Ax² + x
 // # Prime     : p = 2^256 - 189
-// # Author    : Elregan
+// # Author    : Ismael Urzaiz Aranda
 // # Verification: SageMath
 // # Reference : https://safecurves.cr.yp.to/
 // # =============================================================================
@@ -214,5 +214,5 @@
 // print("=" * 50)
 // print("\n  Reference : https://safecurves.cr.yp.to/")
 // print(f"  Curve     : y² = x³ + {A}x² + x  mod  2^256 - 189")
-// print(f"  Author    : Elregan")
+// print(f"  Author    : Ismael Urzaiz Aranda")
 // print("=" * 50)
