@@ -53,7 +53,7 @@ void main() {
   print('\nTest 5 - Public key length 32 bytes?');
   print('  ${aliceKP['publicKey']!.length == 32}');
 
-  // Test 6: EdDSA sign dengan seed yang sama dengan ECDH
+  // Test 6: EdDSA key pair dari seed yang sama
   print('\nTest 6 - EdDSA key pair dari seed yang sama?');
   final aliceEdKP = EdDSA.generateKeyPair(seedAlice);
   final bobEdKP = EdDSA.generateKeyPair(seedBob);
@@ -61,8 +61,8 @@ void main() {
   print('  Bob EdDSA PK:   ${bobEdKP['publicKey']!.map((b) => b.toRadixString(16).padLeft(2, '0')).join()}');
   print('  PK berbeda dari ECDH PK? ${aliceEdKP['publicKey']!.toString() != aliceKP['publicKey']!.toString()}');
 
-  // Test 7: Alice sign pesan, Bob verify
-  print('\nTest 7 - Alice sign, Bob verify?');
+  // Test 7: Alice sign pesan, verify
+  print('\nTest 7 - Alice sign, verify?');
   final message = Uint8List.fromList('Hello X256189!'.codeUnits);
   final signature = EdDSA.sign(message, aliceEdKP['privateKey']!);
   final verified = EdDSA.verify(message, signature, aliceEdKP['publicKey']!);
@@ -75,7 +75,7 @@ void main() {
   final verifiedTampered = EdDSA.verify(tamperedMessage, signature, aliceEdKP['publicKey']!);
   print('  Verified tampered? $verifiedTampered');
 
-  // Test 9: ECDH + EdDSA combined — Alice kirim pesan ke Bob
+  // Test 9: ECDH + EdDSA combined
   print('\nTest 9 - Combined: ECDH shared secret + EdDSA sign?');
   final combinedMessage = Uint8List.fromList([...sharedAlice, ...message]);
   final combinedSig = EdDSA.sign(combinedMessage, aliceEdKP['privateKey']!);

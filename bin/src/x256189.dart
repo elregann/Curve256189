@@ -37,14 +37,18 @@ class X256189 {
     // Derive private scalar via SHA-512 + clamp
     final h = sha512.convert(seed).bytes;
     final skBytes = Uint8List.fromList(h.sublist(0, 32));
-    skBytes[0] &= 248;
+    skBytes[0] &= 252;
     skBytes[31] &= 127;
     skBytes[31] |= 64;
 
     final sk = _bytesToBigInt(skBytes) % n;
 
-    // Public key: sk * G (x-coordinate only)
-    final pkX = Montgomery.ladderXOnly(sk, MontgomeryPoint.G.x);
+    // Cofactor clearing per RFC 7748: multiply scalar by h=4
+    // Ensures shared secret lies in prime-order subgroup
+    final skCleared = sk * BigInt.from(4);
+
+    // Public key: skCleared * G (x-coordinate only)
+    final pkX = Montgomery.ladderXOnly(skCleared, MontgomeryPoint.G.x);
     final pkBytes = _bigIntToBytes(pkX);
 
     return {
@@ -60,11 +64,15 @@ class X256189 {
     // Derive private scalar
     final h = sha512.convert(privateKey).bytes;
     final skBytes = Uint8List.fromList(h.sublist(0, 32));
-    skBytes[0] &= 248;
+    skBytes[0] &= 252;
     skBytes[31] &= 127;
     skBytes[31] |= 64;
 
     final sk = _bytesToBigInt(skBytes) % n;
+
+    // Cofactor clearing per RFC 7748: multiply scalar by h=4
+    // Ensures shared secret lies in prime-order subgroup
+    final skCleared = sk * BigInt.from(4);
 
     // Decode and validate public key
     final pkX = _bytesToBigInt(publicKeyBytes);
@@ -85,8 +93,9 @@ class X256189 {
     final pkPoint = MontgomeryPoint(pkX, y);
     if (!Montgomery.isValidPoint(pkPoint)) return null;
 
-    // Compute shared secret: sk * pk (x-coordinate only)
-    final sharedX = Montgomery.ladderXOnly(sk, pkX);
+    // Compute shared secret: skCleared * pk (x-coordinate only)
+    // skCleared = h * sk ensures result is in prime-order subgroup
+    final sharedX = Montgomery.ladderXOnly(skCleared, pkX);
     if (sharedX == BigInt.zero) return null;
 
     return _bigIntToBytes(sharedX);

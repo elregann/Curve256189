@@ -51,7 +51,7 @@ class EdDSA {
     // Hash seed and clamp private key bytes
     final h = _hash(seed);
     final skBytes = h.sublist(0, 32);
-    skBytes[0] &= 248;
+    skBytes[0] &= 252;
     skBytes[31] &= 127;
     skBytes[31] |= 64;
 
@@ -81,7 +81,7 @@ class EdDSA {
     // Derive secret scalar from private key
     final h = _hash(privateKey);
     final skBytes = h.sublist(0, 32);
-    skBytes[0] &= 248;
+    skBytes[0] &= 252;
     skBytes[31] &= 127;
     skBytes[31] |= 64;
 
@@ -151,25 +151,33 @@ class EdDSA {
     final hPkX = Montgomery.ladderXOnly(hInt, pkMontX);
     final rMontX = TwistedEdwards.toMontgomery(R).x;
 
-    // Recover y candidates from Montgomery curve equation: y² = x³ + Ax² + x
+    // Recover y from Montgomery curve equation: y² = x³ + Ax² + x
+    // Uses safe square-and-multiply instead of BigInt.modPow (Dart bug)
     BigInt recoverY(BigInt x) {
-      final x2 = (x * x) % p;
-      final x3 = (x * x2) % p;
-      final rhs = (x3 + Montgomery.A * x2 + x) % p;
+      final x2 = FieldElement.mul(x, x);
+      final x3 = FieldElement.mul(x, x2);
+      final rhs = FieldElement.add(
+        FieldElement.add(x3, FieldElement.mul(Montgomery.A, x2)),
+        x,
+      );
       final exp = (p + BigInt.one) >> 2;
-      return rhs.modPow(exp, p);
+      return FieldElement.pow(rhs, exp);
     }
 
-    // Try both y-candidate combinations for R and h*pk
-    // Valid signature satisfies one of: (rY, hYn) or (rYn, hY)
+    // Try all 4 y-candidate combinations for R and h*pk
+    // sqrt only gives one candidate — negation gives the other
+    // Valid signature satisfies exactly one of the four combinations:
+    // (rY, hY), (rY, hYn), (rYn, hY), or (rYn, hYn)
     final rY  = recoverY(rMontX);
-    final rYn = FieldElement.sub(BigInt.zero, rY);
+    final rYn = FieldElement.sub(BigInt.zero, rY);  // -rY mod p
     final hY  = recoverY(hPkX);
-    final hYn = FieldElement.sub(BigInt.zero, hY);
+    final hYn = FieldElement.sub(BigInt.zero, hY);  // -hY mod p
 
+    final s1 = Montgomery.add(MontgomeryPoint(rMontX, rY),  MontgomeryPoint(hPkX, hY)).x;
     final s2 = Montgomery.add(MontgomeryPoint(rMontX, rY),  MontgomeryPoint(hPkX, hYn)).x;
     final s3 = Montgomery.add(MontgomeryPoint(rMontX, rYn), MontgomeryPoint(hPkX, hY)).x;
+    final s4 = Montgomery.add(MontgomeryPoint(rMontX, rYn), MontgomeryPoint(hPkX, hYn)).x;
 
-    return s2 == sgX || s3 == sgX;
+    return s1 == sgX || s2 == sgX || s3 == sgX || s4 == sgX;
   }
 }
