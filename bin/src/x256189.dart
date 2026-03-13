@@ -11,22 +11,22 @@ class X256189 {
   static final BigInt p = Curve256189Params.p;
   static final BigInt n = Curve256189Params.n;
 
-  // Convert BigInt to 32-byte big-endian array
+  // Little-endian encoding per RFC 7748 (X25519 convention)
   static Uint8List _bigIntToBytes(BigInt value) {
     final bytes = Uint8List(32);
     var v = value;
-    for (int i = 31; i >= 0; i--) {
+    for (int i = 0; i < 32; i++) {
       bytes[i] = (v & BigInt.from(0xff)).toInt();
       v = v >> 8;
     }
     return bytes;
   }
 
-  // Convert 32-byte big-endian array to BigInt
+  // Convert 32-byte little-endian array to BigInt
   static BigInt _bytesToBigInt(Uint8List bytes) {
     BigInt result = BigInt.zero;
     for (int i = 0; i < bytes.length; i++) {
-      result = (result << 8) | BigInt.from(bytes[i]);
+      result = result | (BigInt.from(bytes[i]) << (8 * i));
     }
     return result;
   }

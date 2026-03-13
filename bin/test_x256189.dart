@@ -1,9 +1,10 @@
 // test_x256189.dart
-import 'src/x256189.dart';
 import 'dart:typed_data';
+import 'src/x256189.dart';
+import 'src/eddsa.dart';
 
 void main() {
-  print('=== Test X256189 ECDH Curve256189 ===');
+  print('=== Test X256189 ECDH + EdDSA Curve256189 ===');
 
   // Seed Alice dan Bob
   final seedAlice = Uint8List.fromList(List.generate(32, (i) => i + 1));
@@ -51,4 +52,33 @@ void main() {
   // Test 5: Public key length 32 bytes?
   print('\nTest 5 - Public key length 32 bytes?');
   print('  ${aliceKP['publicKey']!.length == 32}');
+
+  // Test 6: EdDSA sign dengan seed yang sama dengan ECDH
+  print('\nTest 6 - EdDSA key pair dari seed yang sama?');
+  final aliceEdKP = EdDSA.generateKeyPair(seedAlice);
+  final bobEdKP = EdDSA.generateKeyPair(seedBob);
+  print('  Alice EdDSA PK: ${aliceEdKP['publicKey']!.map((b) => b.toRadixString(16).padLeft(2, '0')).join()}');
+  print('  Bob EdDSA PK:   ${bobEdKP['publicKey']!.map((b) => b.toRadixString(16).padLeft(2, '0')).join()}');
+  print('  PK berbeda dari ECDH PK? ${aliceEdKP['publicKey']!.toString() != aliceKP['publicKey']!.toString()}');
+
+  // Test 7: Alice sign pesan, Bob verify
+  print('\nTest 7 - Alice sign, Bob verify?');
+  final message = Uint8List.fromList('Hello X256189!'.codeUnits);
+  final signature = EdDSA.sign(message, aliceEdKP['privateKey']!);
+  final verified = EdDSA.verify(message, signature, aliceEdKP['publicKey']!);
+  print('  Signature: ${signature.map((b) => b.toRadixString(16).padLeft(2, '0')).join().substring(0, 32)}...');
+  print('  Verified? $verified');
+
+  // Test 8: Pesan diubah — verify gagal?
+  print('\nTest 8 - Pesan diubah verify gagal?');
+  final tamperedMessage = Uint8List.fromList('Hello X256189?'.codeUnits);
+  final verifiedTampered = EdDSA.verify(tamperedMessage, signature, aliceEdKP['publicKey']!);
+  print('  Verified tampered? $verifiedTampered');
+
+  // Test 9: ECDH + EdDSA combined — Alice kirim pesan ke Bob
+  print('\nTest 9 - Combined: ECDH shared secret + EdDSA sign?');
+  final combinedMessage = Uint8List.fromList([...sharedAlice, ...message]);
+  final combinedSig = EdDSA.sign(combinedMessage, aliceEdKP['privateKey']!);
+  final combinedVerified = EdDSA.verify(combinedMessage, combinedSig, aliceEdKP['publicKey']!);
+  print('  Combined verify? $combinedVerified');
 }
