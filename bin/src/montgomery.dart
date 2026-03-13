@@ -215,6 +215,36 @@ class Montgomery {
     return FieldElement.mul(x0, FieldElement.inv(z0));
   }
 
+  // Montgomery Ladder — returns [x_kP, x_(k+1)P] for Okeya-Sakurai y-recovery
+  // Note: no scalar blinding here — blinding breaks x_(k+1)P consistency
+  // Security: called only from TwistedEdwards.scalarMul with internal k
+  static List<BigInt?> ladderXWithNext(BigInt k, BigInt xP) {
+    BigInt x0 = BigInt.one;
+    BigInt z0 = BigInt.zero;
+    BigInt x1 = xP;
+    BigInt z1 = BigInt.one;
+
+    final int bitLen = k.bitLength;
+    for (int i = bitLen - 1; i >= 0; i--) {
+      final bit = (k >> i) & BigInt.one;
+      if (bit == BigInt.zero) {
+        final xAdd = _xADD(x0, z0, x1, z1, xP);
+        final xDbl = _xDBL(x0, z0);
+        x1 = xAdd[0]; z1 = xAdd[1];
+        x0 = xDbl[0]; z0 = xDbl[1];
+      } else {
+        final xAdd = _xADD(x0, z0, x1, z1, xP);
+        final xDbl = _xDBL(x1, z1);
+        x0 = xAdd[0]; z0 = xAdd[1];
+        x1 = xDbl[0]; z1 = xDbl[1];
+      }
+    }
+
+    final xR    = z0 != BigInt.zero ? FieldElement.mul(x0, FieldElement.inv(z0)) : null;
+    final xNext = z1 != BigInt.zero ? FieldElement.mul(x1, FieldElement.inv(z1)) : null;
+    return [xR, xNext];
+  }
+
   // Scalar multiplication with Y-recovery
   static MontgomeryPoint scalarMul(BigInt k, MontgomeryPoint p) {
     if (p.isInfinity) return MontgomeryPoint.infinity();

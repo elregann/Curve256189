@@ -31,6 +31,7 @@ Curve256189 was independently discovered and implemented by Ismael Urzaiz Aranda
 | **Elligator 2** | Point encoding/decoding per RFC 9380 |
 | **HKDF** | Key derivation per RFC 5869 |
 | **AES-GCM** | Authenticated encryption per NIST SP 800-38D |
+| **Batch Verify** | High-throughput Ed256189 batch signature verification |
 
 ---
 
@@ -187,15 +188,25 @@ dart bin/test_x256189.dart
 dart bin/test_hkdf.dart
 dart bin/test_hfe_security.dart
 dart bin/test_aesgcm.dart
+dart bin/test_batch_verify.dart
 ```
 
 ---
 
 ## Implementation Notes
 
-- **No `BigInt.modPow`** — Dart's `BigInt.modPow` has a known bug for 256-bit exponents. All modular exponentiation uses a safe square-and-multiply implementation.
-- **Little-endian encoding** — All byte serialization follows RFC 7748 convention.
-- **Deterministic signatures** — EdDSA nonce derived from `hash(prefix || message)`.
+- **No `BigInt.modPow`** — Dart's `BigInt.modPow` has a known bug for
+  256-bit exponents. All modular exponentiation uses a safe
+  square-and-multiply implementation in `FieldElement.pow()`.
+- **Okeya-Sakurai y-recovery** — `TwistedEdwards.scalarMul` uses the
+  Okeya-Sakurai (2001) formula to recover the correct y-coordinate after
+  Montgomery ladder x-only computation. This fixes an ambiguity where
+  choosing "canonical even y" produces incorrect results for batch
+  verification and general Edwards arithmetic.
+- **Little-endian encoding** — All byte serialization follows RFC 7748
+  convention.
+- **Deterministic signatures** — EdDSA nonce derived from
+  `hash(prefix || message)`.
 
 ---
 

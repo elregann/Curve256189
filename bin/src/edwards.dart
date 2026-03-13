@@ -106,33 +106,56 @@ class TwistedEdwards {
     return EdwardsPoint(x3, y3);
   }
 
-  // Standard scalar multiplication (interface for Montgomery Ladder conversion)
+  // Standard scalar multiplication using Okeya-Sakurai y-recovery
+  // Ref: Okeya & Sakurai 2001 — "Efficient Elliptic Curve Cryptosystems
+  // from a Scalar Multiplication Algorithm with Recovery of the
+  // y-Coordinate on a Montgomery-Form Elliptic Curve"
   static EdwardsPoint scalarMul(BigInt k, EdwardsPoint P) {
     if (k == BigInt.zero) return EdwardsPoint.infinity();
 
     // Edwards → Montgomery
     final montP = toMontgomery(P);
+    final xP = montP.x;
+    final yP = montP.y;
 
-    // Montgomery Ladder x-only (complete + constant-time)
-    final xR = Montgomery.ladderXOnly(k, montP.x);
-    if (xR == BigInt.zero) return EdwardsPoint.infinity();
+    // Montgomery Ladder — get x_kP and x_(k+1)P
+    final xPair = Montgomery.ladderXWithNext(k, xP);
+    final xR    = xPair[0];
+    final xNext = xPair[1];
 
-    // Recover y dari y² = x³ + Ax² + x
-    final x2 = FieldElement.mul(xR, xR);
-    final x3 = FieldElement.mul(xR, x2);
+    if (xR == null) return EdwardsPoint.infinity();
+
+    // rhs = x³ + Ax² + x
+    final x2  = FieldElement.mul(xR, xR);
+    final x3  = FieldElement.mul(xR, x2);
     final rhs = FieldElement.add(
       FieldElement.add(x3, FieldElement.mul(A, x2)),
       xR,
     );
-    final exp = (p + BigInt.one) >> 2;
-    var yR = FieldElement.pow(rhs, exp);
 
-    if (FieldElement.mul(yR, yR) != rhs) {
+    // Special case: yP == 0 (order-2 point)
+    if (yP == BigInt.zero) {
+      if (rhs == BigInt.zero) return fromMontgomery(MontgomeryPoint(xR, BigInt.zero));
       return _scalarMulFallback(k, P);
     }
 
-    // Canonical y: choose even
-    if (yR.isOdd) yR = FieldElement.sub(BigInt.zero, yR);
+    if (xNext == null) return _scalarMulFallback(k, P);
+
+    // Okeya-Sakurai y-recovery formula (B=1):
+    // y_R = ((xP*xR+1)*(xP+xR+2A) - 2A - (xP-xR)²*xNext) / (2*yP)
+    final term1 = FieldElement.add(FieldElement.mul(xP, xR), BigInt.one);
+    final term2 = FieldElement.add(FieldElement.add(xP, xR), FieldElement.mul(BigInt.two, A));
+    final prod  = FieldElement.mul(term1, term2);
+    final term3 = FieldElement.mul(BigInt.two, A);
+    final diff  = FieldElement.sub(xP, xR);
+    final diff2 = FieldElement.mul(diff, diff);
+    final term4 = FieldElement.mul(diff2, xNext);
+    final numer = FieldElement.sub(FieldElement.sub(prod, term3), term4);
+    final denom = FieldElement.mul(BigInt.two, yP);
+    final yR    = FieldElement.mul(numer, FieldElement.inv(denom));
+
+    // Verify
+    if (FieldElement.mul(yR, yR) != rhs) return _scalarMulFallback(k, P);
 
     // Montgomery → Edwards
     return fromMontgomery(MontgomeryPoint(xR, yR));
