@@ -30,6 +30,7 @@ Curve256189 was independently discovered and implemented by Ismael Urzaiz Aranda
 | **EdDSA** | Digital signatures with HFE double layer |
 | **Elligator 2** | Point encoding/decoding per RFC 9380 |
 | **HKDF** | Key derivation per RFC 5869 |
+| **AES-GCM** | Authenticated encryption per NIST SP 800-38D |
 
 ---
 
@@ -59,12 +60,12 @@ Full verification: `bin/safecurves_curve256189.sage`
 
 ## Security Properties
 
-- **Montgomery Ladder** Constant-time scalar multiplication
-- **Scalar blinding** Timing attack prevention via `Random.secure()`
-- **Point validation** Rejects infinity, out-of-range, off-curve, and low-order points
-- **Cofactor clearing** h=4 per RFC 7748 convention
-- **HFE double layer** Additional obfuscation on private scalar
-- **Elligator 2** Uniform random point encoding for traffic analysis resistance
+- **Montgomery Ladder** — Constant-time scalar multiplication
+- **Scalar blinding** — Timing attack prevention via `Random.secure()`
+- **Point validation** — Rejects infinity, out-of-range, off-curve, and low-order points
+- **Cofactor clearing** — h=4 per RFC 7748 convention
+- **HFE double layer** — Additional obfuscation on private scalar
+- **Elligator 2** — Uniform random point encoding for traffic analysis resistance
 
 ---
 
@@ -94,6 +95,14 @@ HKDF key:   55c8e6fdcbb611ef67fb69b6245f688a372828f56b78b5f6006d389ee215f6ba
 encode(1)  = 38597363079105398474523661669562635951089994888546854679819194669304376226851
 encode(2)  = 90060513851245929773888543895646150552543321406609327586244787561710211515717
 encode(42) = 51481379431382575976079023938405023355562653992742999427007353161920005302563
+```
+
+### AES-256-GCM (NIST SP 800-38D)
+```
+Key:       0000000000000000000000000000000000000000000000000000000000000000
+Nonce:     000000000000000000000000
+Plaintext: (empty)
+Tag:       530f8afbc74536b9a963b4f1c4cb738b  ← NIST verified
 ```
 
 ---
@@ -142,6 +151,27 @@ final key = HKDF.derive(
 );
 ```
 
+### AES-GCM — Encrypt and Decrypt
+```dart
+import 'package:curve256189/src/aesgcm.dart';
+import 'dart:typed_data';
+
+// Encrypt
+final result = AESGCM.encrypt(
+  key: aesKey,      // 32 bytes from HKDF
+  nonce: aesNonce,  // 12 bytes from HKDF
+  plaintext: Uint8List.fromList('Hello!'.codeUnits),
+);
+
+// Decrypt
+final plaintext = AESGCM.decrypt(
+  key: aesKey,
+  nonce: aesNonce,
+  ciphertext: result.ciphertext,
+  tag: result.tag,
+);
+```
+
 ---
 
 ## Running Tests
@@ -156,6 +186,7 @@ dart bin/test_blinding.dart
 dart bin/test_x256189.dart
 dart bin/test_hkdf.dart
 dart bin/test_hfe_security.dart
+dart bin/test_aesgcm.dart
 ```
 
 ---
@@ -163,7 +194,7 @@ dart bin/test_hfe_security.dart
 ## Implementation Notes
 
 - **No `BigInt.modPow`** — Dart's `BigInt.modPow` has a known bug for 256-bit exponents. All modular exponentiation uses a safe square-and-multiply implementation.
-- **Little-endian encoding** — all byte serialization follows RFC 7748 convention.
+- **Little-endian encoding** — All byte serialization follows RFC 7748 convention.
 - **Deterministic signatures** — EdDSA nonce derived from `hash(prefix || message)`.
 
 ---
@@ -177,7 +208,8 @@ MIT License — see [LICENSE](LICENSE)
 ## References
 
 - [SafeCurves](https://safecurves.cr.yp.to/)
-- [RFC 7748](https://www.rfc-editor.org/rfc/rfc7748) Elliptic Curves for Diffie-Hellman
-- [RFC 8032](https://www.rfc-editor.org/rfc/rfc8032) Edwards-Curve Digital Signature Algorithm
-- [RFC 9380](https://www.rfc-editor.org/rfc/rfc9380) Hashing to Elliptic Curves (Elligator 2)
-- [RFC 5869](https://www.rfc-editor.org/rfc/rfc5869) HKDF
+- [RFC 7748](https://www.rfc-editor.org/rfc/rfc7748) — Elliptic Curves for Diffie-Hellman
+- [RFC 8032](https://www.rfc-editor.org/rfc/rfc8032) — Edwards-Curve Digital Signature Algorithm
+- [RFC 9380](https://www.rfc-editor.org/rfc/rfc9380) — Hashing to Elliptic Curves (Elligator 2)
+- [RFC 5869](https://www.rfc-editor.org/rfc/rfc5869) — HKDF
+- [NIST SP 800-38D](https://csrc.nist.gov/publications/detail/sp/800-38d/final) — AES-GCM
