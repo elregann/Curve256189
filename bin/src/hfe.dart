@@ -1,14 +1,18 @@
 // hfe.dart
-// Scalar obfuscation layer inspired by HFE structure
+// Scalar obfuscation layer — HFE-inspired pipeline
 // Jacques Patarin, 1996.
 //
-// Note: This is NOT a full HFE implementation.
-// Operates in Z/nZ (ring modulo curve order n),
-// NOT in GF(p). FieldElement is intentionally NOT used
-// here because FieldElement hardcodes modulus p.
+// ⚠️  RESEARCH NOTE (March 2026):
+// This implementation was found to be recoverable
+// via Lagrange interpolation with only degree+1
+// known-plaintext pairs. See fpow.dart for the
+// evolved implementation (FPOW) that addresses
+// this weakness.
 //
-// e=3 is safe for Dart BigInt.modPow (bug only affects
-// 256-bit exponents, not small constants like e=3).
+// This file is kept for historical reference and
+// to document the research journey that led to
+// the discovery of FPOW.
+
 import 'params.dart';
 import 'dart:typed_data';
 import 'dart:convert';

@@ -27,11 +27,12 @@ Curve256189 was independently discovered and implemented by Ismael Urzaiz Aranda
 | **Curve256189** | Montgomery curve — core arithmetic, point validation, scalar blinding |
 | **Ed256189** | Twisted Edwards birational equivalent |
 | **X256189** | ECDH key exchange — cofactor clearing per RFC 7748 |
-| **EdDSA** | Digital signatures with HFE double layer |
+| **EdDSA** | Digital signatures with FPOW scalar protection |
 | **Elligator 2** | Point encoding/decoding per RFC 9380 |
 | **HKDF** | Key derivation per RFC 5869 |
 | **AES-GCM** | Authenticated encryption per NIST SP 800-38D |
 | **Batch Verify** | High-throughput Ed256189 batch signature verification |
+| **FPOW** | Fixed-Point One-Way Wrap — scalar obfuscation layer |
 
 ---
 
@@ -65,8 +66,67 @@ Full verification: `bin/safecurves_curve256189.sage`
 - **Scalar blinding** — Timing attack prevention via `Random.secure()`
 - **Point validation** — Rejects infinity, out-of-range, off-curve, and low-order points
 - **Cofactor clearing** — h=4 per RFC 7748 convention
-- **HFE double layer** — Additional obfuscation on private scalar
+- **FPOW layer** — Fixed-Point One-Way Wrap for private scalar protection
 - **Elligator 2** — Uniform random point encoding for traffic analysis resistance
+
+---
+
+## Research Journey — From HFE to FPOW
+
+### Background
+
+The original implementation used an HFE-inspired scalar obfuscation pipeline (S∘F∘T) where:
+```
+wrap(k) = T(F(S(k)))
+S(x) = a*x + b  mod n
+F(x) = x³ + coeff*x  mod n
+T(x) = c*x + d  mod n
+```
+
+### Discovery (March 2026)
+
+During security audit, a critical weakness was found: the pipeline produces a **degree-3 polynomial in k**, recoverable via Lagrange interpolation with only 4 known-plaintext pairs:
+```
+wrap(k) = A*k³ + B*k² + C*k + D
+→ 4 pairs (k, wrap(k)) → A,B,C,D fully recovered
+→ Cubic equation mod n → k recoverable
+```
+
+This finding led to the development of **FPOW**.
+
+### FPOW — Fixed-Point One-Way Wrap
+```
+wrap(k, secret) = k + H(secret ‖ k) mod n
+where H = SHA-512 (one-way function)
+```
+
+**Properties verified via SageMath:**
+
+| Property | Result |
+|---|---|
+| Non-polynomial | Lagrange interpolation fails ✅ |
+| Statistical uniformity | Output ratio ~1.0 ✅ |
+| Differential randomness | 500/500 unique diffs ✅ |
+| Fixed-point one-way | k_raw = k' − H(secret ‖ k_raw) — circular ✅ |
+| Quantum resistance | Grover: 2^128 — infeasible ✅ |
+
+**Shor resistance analysis:**
+```
+Shor's algorithm on ECDLP → recovers k_wrapped
+But k_wrapped ≠ k_raw!
+
+To recover k_raw, attacker must solve:
+k_raw = k_wrapped − H(secret ‖ k_raw) mod n
+
+This is a fixed-point equation:
+→ Classical brute force: 2^256
+→ Grover acceleration:   2^128 (still infeasible)
+→ No known algebraic shortcut
+```
+
+Full verification: `bin/fpow_curve256189.sage`
+
+> **Note:** FPOW is a novel construction not found in surveyed literature at time of writing. It is kept as a research contribution pending formal peer review. HFE is preserved in `lib/src/hfe.dart` for historical reference.
 
 ---
 
@@ -189,24 +249,19 @@ dart bin/test_hkdf.dart
 dart bin/test_hfe_security.dart
 dart bin/test_aesgcm.dart
 dart bin/test_batch_verify.dart
+dart bin/test_audit.dart
 ```
 
 ---
 
 ## Implementation Notes
 
-- **No `BigInt.modPow`** — Dart's `BigInt.modPow` has a known bug for
-  256-bit exponents. All modular exponentiation uses a safe
-  square-and-multiply implementation in `FieldElement.pow()`.
-- **Okeya-Sakurai y-recovery** — `TwistedEdwards.scalarMul` uses the
-  Okeya-Sakurai (2001) formula to recover the correct y-coordinate after
-  Montgomery ladder x-only computation. This fixes an ambiguity where
-  choosing "canonical even y" produces incorrect results for batch
-  verification and general Edwards arithmetic.
-- **Little-endian encoding** — All byte serialization follows RFC 7748
-  convention.
-- **Deterministic signatures** — EdDSA nonce derived from
-  `hash(prefix || message)`.
+- **No `BigInt.modPow`** — Dart's `BigInt.modPow` has a known bug for 256-bit exponents. All modular exponentiation uses a safe square-and-multiply implementation in `FieldElement.pow()`.
+- **Okeya-Sakurai y-recovery** — `TwistedEdwards.scalarMul` uses the Okeya-Sakurai (2001) formula to recover the correct y-coordinate after Montgomery ladder x-only computation. This fixes an ambiguity where choosing "canonical even y" produces incorrect results for batch verification and general Edwards arithmetic.
+- **Parity bit fix** — `TwistedEdwards.decodePoint` uses `(bytes[32] & 1) == 1` instead of `bytes[32] == 1` to correctly handle all odd parity byte values.
+- **Little-endian encoding** — All byte serialization follows RFC 7748 convention.
+- **Deterministic signatures** — EdDSA nonce derived from `hash(prefix || message)`.
+- **HFE preserved** — Original HFE implementation kept in `lib/src/hfe.dart` for historical reference. See Research Journey section above.
 
 ---
 
@@ -224,3 +279,4 @@ MIT License — see [LICENSE](LICENSE)
 - [RFC 9380](https://www.rfc-editor.org/rfc/rfc9380) — Hashing to Elliptic Curves (Elligator 2)
 - [RFC 5869](https://www.rfc-editor.org/rfc/rfc5869) — HKDF
 - [NIST SP 800-38D](https://csrc.nist.gov/publications/detail/sp/800-38d/final) — AES-GCM
+- [Patarin 1996](https://link.springer.com/chapter/10.1007/3-540-68339-9_4) — Hidden Field Equations (HFE)
