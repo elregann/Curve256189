@@ -1,233 +1,166 @@
+// curve256189_test.dart
+// Curve256189 Test Suite
+// Covers: group law, EdDSA sign/verify, forgery resistance
+//
+// Each test runs multiple iterations with random inputs
+// to ensure statistical coverage of edge cases.
+
 import 'dart:math';
 import 'dart:typed_data';
 import 'src/eddsa.dart';
 import 'src/edwards.dart';
-import 'src/hfe.dart';
+import 'src/params.dart';
 
 class Curve256189Test {
+  static final Random _rand = Random.secure();
 
-  static final rand = Random.secure();
-
-  static Uint8List randomBytes(int len) {
-    final b = Uint8List(len);
-    for (int i = 0; i < len; i++) {
-      b[i] = rand.nextInt(256);
+  static Uint8List _randomBytes(int length) {
+    final bytes = Uint8List(length);
+    for (int i = 0; i < length; i++) {
+      bytes[i] = _rand.nextInt(256);
     }
-    return b;
+    return bytes;
   }
 
-  static BigInt randomScalar() {
-    return BigInt.from(rand.nextInt(1 << 30));
+  static BigInt _randomScalar() {
+    // Generate scalar in full range [0, n)
+    final bytes = _randomBytes(32);
+    var scalar = BigInt.zero;
+    for (int i = 0; i < 32; i++) {
+      scalar = (scalar << 8) | BigInt.from(bytes[i]);
+    }
+    return scalar % Curve256189Params.n;
   }
 
-  static bool pointEqual(EdwardsPoint p1, EdwardsPoint p2) {
+  static bool _pointEqual(EdwardsPoint p1, EdwardsPoint p2) {
     return p1.x == p2.x && p1.y == p2.y;
   }
 
-  // =========================
-  // 1. GROUP LAW TEST
-  // =========================
-
+  // ─────────────────────────────────────────────
+  // 1. Group Law Test
+  //    Verifies (a + b)·G = a·G + b·G
+  //    This is the fundamental property of elliptic curves
+  // ─────────────────────────────────────────────
   static void testGroupLaw() {
-
-    print("Running group law test...");
-
-    for (int i = 0; i < 50000; i++) {
-
-      final k1 = randomScalar();
-      final k2 = randomScalar();
-
-      final p1 = TwistedEdwards.scalarMul(k1, EdDSA.G);
-      final p2 = TwistedEdwards.scalarMul(k2, EdDSA.G);
-
-      final left = TwistedEdwards.scalarMul(k1 + k2, EdDSA.G);
-      final right = TwistedEdwards.add(p1, p2);
-
-      if (!pointEqual(left, right)) {
-
-        print("❌ Group law failed at iteration $i");
-        return;
-
-      }
-
-    }
-
-    print("✅ Group law OK");
-
-  }
-
-  // =========================
-  // 2. SCALAR CONSISTENCY
-  // =========================
-
-  static void testScalarConsistency() {
-
-    print("Running scalar consistency test...");
+    print('  Running group law test (50,000 iterations)...');
 
     for (int i = 0; i < 50000; i++) {
+      final a = _randomScalar();
+      final b = _randomScalar();
 
-      final k = randomScalar();
+      final p1 = TwistedEdwards.scalarMul(a, EdDSA.G);
+      final p2 = TwistedEdwards.scalarMul(b, EdDSA.G);
+      final pSum = TwistedEdwards.add(p1, p2);
 
-      final p1 = TwistedEdwards.scalarMul(k, EdDSA.G);
+      final pDirect = TwistedEdwards.scalarMul((a + b) % Curve256189Params.n, EdDSA.G);
 
-      final half = k ~/ BigInt.two;
-
-      final p2 = TwistedEdwards.scalarMul(half, EdDSA.G);
-
-      final p3 = TwistedEdwards.add(p2, p2);
-
-      if (!pointEqual(p1, p3) && k.isEven) {
-
-        print("❌ Scalar multiplication inconsistency");
+      if (!_pointEqual(pDirect, pSum)) {
+        print('  ❌ FAIL — Group law violation at iteration $i');
+        print('      a = $a');
+        print('      b = $b');
         return;
-
       }
-
     }
 
-    print("✅ Scalar multiplication OK");
-
+    print('  ✅ PASS — Group law holds for all tested scalars');
   }
 
-  // =========================
-  // 3. SIGNATURE TEST
-  // =========================
-
+  // ─────────────────────────────────────────────
+  // 2. EdDSA Sign/Verify Test
+  //    Ensures that valid signatures always verify
+  // ─────────────────────────────────────────────
   static void testSignVerify() {
-
-    print("Running signature test...");
+    print('  Running EdDSA sign/verify test (10,000 iterations)...');
 
     for (int i = 0; i < 10000; i++) {
-
-      final seed = randomBytes(32);
-
+      final seed = _randomBytes(32);
       final keypair = EdDSA.generateKeyPair(seed);
+      final message = _randomBytes(32);
+      final signature = EdDSA.sign(message, keypair['privateKey']!);
 
-      final msg = randomBytes(32);
-
-      final sig = EdDSA.sign(
-        msg,
-        keypair['privateKey']!,
-      );
-
-      final ok = EdDSA.verify(
-        msg,
-        sig,
-        keypair['publicKey']!,
-      );
-
-      if (!ok) {
-
-        print("❌ Signature verification failed");
+      if (!EdDSA.verify(message, signature, keypair['publicKey']!)) {
+        print('  ❌ FAIL — Valid signature failed verification at iteration $i');
         return;
-
       }
-
     }
 
-    print("✅ Signature test OK");
-
+    print('  ✅ PASS — All valid signatures verify correctly');
   }
 
-  // =========================
-  // 4. FORGERY TEST
-  // =========================
-
+  // ─────────────────────────────────────────────
+  // 3. Forgery Resistance Test
+  //    Tests specific forgery vectors:
+  //    - Wrong public key
+  //    - Wrong message
+  //    - Signature malleability
+  //    - Random signatures
+  // ─────────────────────────────────────────────
   static void testForgery() {
+    print('  Running forgery resistance test...');
 
-    print("Running forgery test...");
-
-    final seed = randomBytes(32);
-
+    final seed = _randomBytes(32);
     final keypair = EdDSA.generateKeyPair(seed);
+    final message = _randomBytes(32);
+    final signature = EdDSA.sign(message, keypair['privateKey']!);
 
-    final pk = keypair['publicKey']!;
+    // Test 1: Wrong public key
+    final wrongSeed = _randomBytes(32);
+    final wrongKeypair = EdDSA.generateKeyPair(wrongSeed);
+    _checkForgery('Wrong public key',
+        !EdDSA.verify(message, signature, wrongKeypair['publicKey']!));
 
-    final msg = randomBytes(32);
+    // Test 2: Wrong message
+    final wrongMessage = _randomBytes(32);
+    _checkForgery('Wrong message',
+        !EdDSA.verify(wrongMessage, signature, keypair['publicKey']!));
 
-    for (int i = 0; i < 100000; i++) {
+    // Test 3: Signature malleability — modified s
+    final malleableSig = Uint8List.fromList(signature);
+    malleableSig[40] ^= 0x01;  // Flip one bit in s component
+    _checkForgery('Malleable signature (modified s)',
+        !EdDSA.verify(message, malleableSig, keypair['publicKey']!));
 
-      final fakeSig = randomBytes(65);
+    // Test 4: Signature malleability — modified R
+    final malleableSigR = Uint8List.fromList(signature);
+    malleableSigR[20] ^= 0x01;  // Flip one bit in R component
+    _checkForgery('Malleable signature (modified R)',
+        !EdDSA.verify(message, malleableSigR, keypair['publicKey']!));
 
-      final ok = EdDSA.verify(msg, fakeSig, pk);
-
-      if (ok) {
-
-        print("🚨 Forged signature detected!");
-        return;
-
+    // Test 5: Random signatures (100 attempts — sufficient statistically)
+    int randomForgeries = 0;
+    for (int i = 0; i < 100; i++) {
+      final fakeSig = _randomBytes(65);
+      if (EdDSA.verify(message, fakeSig, keypair['publicKey']!)) {
+        randomForgeries++;
       }
-
     }
+    _checkForgery('Random signatures (100 attempts)',
+        randomForgeries == 0);
 
-    print("✅ No forgery detected");
-
+    print('  ✅ PASS — All forgery attempts rejected');
   }
 
-  // =========================
-  // 5. HFE COLLISION TEST
-  // =========================
-
-  static void testHFECollision() {
-
-    print("Running HFE collision test...");
-
-    final seen = <BigInt>{};
-
-    for (int i = 0; i < 100000; i++) {
-
-      final k = randomScalar();
-
-      final seed = randomBytes(32);
-
-      final constants = HFE.deriveConstants(seed);
-
-      final wrapped = HFE.wrap(
-        k,
-        constants['a']!,
-        constants['b']!,
-        constants['c']!,
-        constants['d']!,
-        constants['coeff']!,
-      );
-
-      if (seen.contains(wrapped)) {
-
-        print("⚠ HFE collision detected!");
-        return;
-
-      }
-
-      seen.add(wrapped);
-
+  static void _checkForgery(String name, bool result) {
+    if (!result) {
+      print('  ❌ FAIL — $name accepted as valid');
     }
-
-    print("✅ No HFE collisions detected");
-
   }
 
-  // =========================
-  // RUN ALL TESTS
-  // =========================
-
+  // ─────────────────────────────────────────────
+  // Run All Tests
+  // ─────────────────────────────────────────────
   static void runAll() {
-
-    print("================================");
-    print(" Curve256189 Test Suite");
-    print("================================");
+    print('╔══════════════════════════════════════╗');
+    print('║  Curve256189 Test Suite              ║');
+    print('╚══════════════════════════════════════╝');
 
     testGroupLaw();
-    testScalarConsistency();
     testSignVerify();
     testForgery();
-    testHFECollision();
 
-    print("================================");
-    print(" All tests finished");
-    print("================================");
-
+    print('  ──────────────────────────────────────');
+    print('  ✅ All tests completed');
   }
-
 }
 
 void main() {

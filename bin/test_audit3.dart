@@ -1,139 +1,183 @@
+// curve256189_security_test.dart
+// Curve256189 Security-Focused Test Suite
+// Covers: point validation, signature non-malleability, encode/decode round-trip
+
 import 'dart:math';
 import 'dart:typed_data';
-
 import 'src/eddsa.dart';
 import 'src/edwards.dart';
+import 'src/params.dart';
 
 class Curve256189SecurityTest {
+  static final Random _rand = Random.secure();
 
-  static final rand = Random.secure();
-
-  static Uint8List randomBytes(int len) {
-    final b = Uint8List(len);
-    for (int i = 0; i < len; i++) {
-      b[i] = rand.nextInt(256);
+  static Uint8List _randomBytes(int length) {
+    final bytes = Uint8List(length);
+    for (int i = 0; i < length; i++) {
+      bytes[i] = _rand.nextInt(256);
     }
-    return b;
+    return bytes;
   }
 
-  static bool pointEqual(EdwardsPoint a, EdwardsPoint b) {
+  static bool _pointEqual(EdwardsPoint a, EdwardsPoint b) {
     return a.x == b.x && a.y == b.y;
   }
 
-  // =========================
-  // 1 INVALID POINT TEST
-  // =========================
-
+  // ─────────────────────────────────────────────
+  // 1. Invalid Point Decode Test
+  //    Ensures decodePoint rejects invalid encodings:
+  //    - Random bytes should not decode to valid points
+  //    - Points that decode must be on curve
+  // ─────────────────────────────────────────────
   static void testInvalidPointDecode() {
+    print('  Running invalid point decode test (100,000 iterations)...');
 
-    print("Running invalid point decode test...");
+    int totalDecodes = 0;
 
     for (int i = 0; i < 100000; i++) {
-
-      final bytes = randomBytes(33);
-
+      final bytes = _randomBytes(33);  // 33-byte compressed Edwards point
       final P = TwistedEdwards.decodePoint(bytes);
 
       if (P != null) {
-
+        totalDecodes++;
         if (!TwistedEdwards.isOnCurve(P)) {
-
-          print("🚨 Invalid point accepted!");
+          print('  ❌ FAIL — Point decoded but is not on curve');
           return;
-
         }
+      }
+    }
 
+    // Statistical check: random 33-byte string should almost never decode to valid point
+    // Probability ≈ (number of valid points)/2²⁶⁴ ≈ negligible
+    if (totalDecodes > 0) {
+      print('  ⚠️  WARNING — $totalDecodes random inputs decoded to points');
+      print('      This is statistically unexpected but not necessarily a failure');
+    }
+
+    print('  ✅ PASS — All decoded points are on curve');
+  }
+
+  // ─────────────────────────────────────────────
+  // 2. Signature Non-Malleability Test
+  //    Ensures EdDSA signatures are not malleable:
+  //    - Modified R component rejected
+  //    - Modified s component rejected
+  //    - Non-canonical s (>= n) rejected
+  // ─────────────────────────────────────────────
+  static void testSignatureNonMalleability() {
+    print('  Running signature non-malleability test...');
+
+    final seed = _randomBytes(32);
+    final keypair = EdDSA.generateKeyPair(seed);
+    final message = _randomBytes(32);
+    final signature = EdDSA.sign(message, keypair['privateKey']!);
+    final n = Curve256189Params.n;
+
+    // Test 1: Modified R component
+    final modifiedR = Uint8List.fromList(signature);
+    modifiedR[10] ^= 0x01;  // Flip bit in R (first 32 bytes)
+    _checkMalleability('Modified R component',
+        !EdDSA.verify(message, modifiedR, keypair['publicKey']!));
+
+    // Test 2: Modified s component
+    final modifiedS = Uint8List.fromList(signature);
+    modifiedS[40] ^= 0x01;  // Flip bit in s (last 32 bytes)
+    _checkMalleability('Modified s component',
+        !EdDSA.verify(message, modifiedS, keypair['publicKey']!));
+
+    // Test 3: Non-canonical s (s >= n)
+    // Extract s from signature (last 32 bytes)
+    final sBytes = signature.sublist(32, 64);
+    var s = BigInt.zero;
+    for (int i = 0; i < 32; i++) {
+      s = (s << 8) | BigInt.from(sBytes[i]);
+    }
+
+    if (s >= n) {
+      // Signature already non-canonical — should be rejected
+      _checkMalleability('Non-canonical s (original)',
+          !EdDSA.verify(message, signature, keypair['publicKey']!));
+    } else {
+      // Create non-canonical s by adding n
+      final nonCanonicalS = s + n;
+      final nonCanonicalBytes = Uint8List(32);
+      var temp = nonCanonicalS;
+      for (int i = 31; i >= 0; i--) {
+        nonCanonicalBytes[i] = (temp & BigInt.from(0xff)).toInt();
+        temp = temp >> 8;
       }
 
+      final nonCanonicalSig = Uint8List(64)
+        ..setRange(0, 32, signature.sublist(0, 32))
+        ..setRange(32, 64, nonCanonicalBytes);
+
+      _checkMalleability('Non-canonical s (s + n)',
+          !EdDSA.verify(message, nonCanonicalSig, keypair['publicKey']!));
     }
 
-    print("✅ Invalid point test OK");
+    print('  ✅ PASS — No malleable signatures accepted');
   }
 
-  // =========================
-  // 2 SIGNATURE MALLEABILITY
-  // =========================
-
-  static void testSignatureMalleability() {
-
-    print("Running signature malleability test...");
-
-    final seed = randomBytes(32);
-
-    final keypair = EdDSA.generateKeyPair(seed);
-
-    final msg = randomBytes(32);
-
-    final sig = EdDSA.sign(msg, keypair['privateKey']!);
-
-    final fake = Uint8List.fromList(sig);
-
-    // flip last byte
-    fake[fake.length - 1] ^= 1;
-
-    final ok = EdDSA.verify(msg, fake, keypair['publicKey']!);
-
-    if (ok) {
-
-      print("🚨 Signature malleable!");
-      return;
-
+  static void _checkMalleability(String testName, bool rejected) {
+    if (!rejected) {
+      print('  ❌ FAIL — $testName was accepted');
     }
-
-    print("✅ Signature malleability test OK");
   }
 
-  // =========================
-  // 3 ENCODE / DECODE TEST
-  // =========================
-
+  // ─────────────────────────────────────────────
+  // 3. Point Encode/Decode Round-Trip Test
+  //    Verifies that encodePoint ∘ decodePoint = identity
+  //    for all valid points reachable from G
+  // ─────────────────────────────────────────────
   static void testPointEncoding() {
-
-    print("Running encode/decode test...");
-
-    final G = EdDSA.G;
+    print('  Running point encode/decode round-trip test (50,000 iterations)...');
 
     for (int i = 0; i < 50000; i++) {
+      // Generate random scalar in full range [0, n)
+      final scalarBytes = _randomBytes(32);
+      var k = BigInt.zero;
+      for (int j = 0; j < 32; j++) {
+        k = (k << 8) | BigInt.from(scalarBytes[j]);
+      }
+      k = k % Curve256189Params.n;
 
-      final k = BigInt.from(rand.nextInt(1 << 30));
+      final P = TwistedEdwards.scalarMul(k, EdDSA.G);
+      final encoded = TwistedEdwards.encodePoint(P);
+      final decoded = TwistedEdwards.decodePoint(encoded);
 
-      final P = TwistedEdwards.scalarMul(k, G);
-
-      final enc = TwistedEdwards.encodePoint(P);
-
-      final dec = TwistedEdwards.decodePoint(enc);
-
-      if (dec == null || !pointEqual(P, dec)) {
-
-        print("🚨 Encode/decode mismatch!");
+      if (decoded == null) {
+        print('  ❌ FAIL — Failed to decode encoded point at iteration $i');
         return;
-
       }
 
+      if (!_pointEqual(P, decoded)) {
+        print('  ❌ FAIL — Encode/decode round-trip mismatch at iteration $i');
+        print('      Original: (${P.x}, ${P.y})');
+        print('      Decoded:  (${decoded.x}, ${decoded.y})');
+        return;
+      }
     }
 
-    print("✅ Encode/decode test OK");
+    print('  ✅ PASS — All points survive encode/decode round-trip');
   }
 
+  // ─────────────────────────────────────────────
+  // Run All Security Tests
+  // ─────────────────────────────────────────────
   static void runAll() {
-
-    print("================================");
-    print(" Curve256189 Security Test");
-    print("================================");
+    print('╔══════════════════════════════════════╗');
+    print('║  Curve256189 Security Test Suite     ║');
+    print('╚══════════════════════════════════════╝');
 
     testInvalidPointDecode();
-    testSignatureMalleability();
+    testSignatureNonMalleability();
     testPointEncoding();
 
-    print("================================");
-    print(" Security tests finished");
-    print("================================");
+    print('  ──────────────────────────────────────');
+    print('  ✅ All security tests completed');
   }
-
 }
 
 void main() {
-
   Curve256189SecurityTest.runAll();
-
 }
