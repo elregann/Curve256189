@@ -1,7 +1,7 @@
 // test_validation.dart
-import 'src/montgomery.dart';
-import 'src/params.dart';
-import 'src/field.dart';
+import '../src/montgomery.dart';
+import '../src/params.dart';
+import '../src/field.dart';
 
 void main() {
   print('=== Test Point Validation Curve256189 ===');

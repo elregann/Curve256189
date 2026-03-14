@@ -102,13 +102,13 @@ where H = SHA-512 (one-way function)
 
 **Properties verified via SageMath:**
 
-| Property | Result |
-|---|---|
-| Non-polynomial | Lagrange interpolation fails ✅ |
-| Statistical uniformity | Output ratio ~1.0 ✅ |
-| Differential randomness | 500/500 unique diffs ✅ |
-| Fixed-point one-way | k_raw = k' − H(secret ‖ k_raw) — circular ✅ |
-| Quantum resistance | Grover: 2^128 — infeasible ✅ |
+| Property | Result | Status |
+|---|---|-|
+| Non-polynomial | Lagrange interpolation fails | ✅ |
+| Statistical uniformity | Output ratio ~1.0 | ✅ |
+| Differential randomness | 500/500 unique diffs | ✅ |
+| Fixed-point one-way | k_raw = k' − H(secret ‖ k_raw) — circular | ✅ |
+| Quantum resistance | Grover: 2^128 — infeasible | ✅ |
 
 **Shor resistance analysis:**
 ```
