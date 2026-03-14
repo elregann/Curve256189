@@ -1,6 +1,6 @@
 // test_elligator.dart
-import 'src/elligator.dart';
-import 'src/params.dart';
+import '../src/elligator.dart';
+import '../src/params.dart';
 
 void main() {
   print('=== Test Elligator 2 Curve256189 ===');

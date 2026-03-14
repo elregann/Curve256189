@@ -56,7 +56,7 @@ Curve256189 passes all 11 SafeCurves criteria — verified via SageMath:
 
 **Score: 11/11 — SafeCurves Compliant ✅**
 
-Full verification: `bin/safecurves_curve256189.sage`
+Full verification: `bin/src_test/safecurves_curve256189.sage`
 
 ---
 
@@ -102,13 +102,13 @@ where H = SHA-512 (one-way function)
 
 **Properties verified via SageMath:**
 
-| Property | Result |
-|---|---|
-| Non-polynomial | Lagrange interpolation fails ✅ |
-| Statistical uniformity | Output ratio ~1.0 ✅ |
-| Differential randomness | 500/500 unique diffs ✅ |
-| Fixed-point one-way | k_raw = k' − H(secret ‖ k_raw) — circular ✅ |
-| Quantum resistance | Grover: 2^128 — infeasible ✅ |
+| Property | Result | Status |
+|---|---|-|
+| Non-polynomial | Lagrange interpolation fails | ✅ |
+| Statistical uniformity | Output ratio ~1.0 | ✅ |
+| Differential randomness | 500/500 unique diffs | ✅ |
+| Fixed-point one-way | k_raw = k' − H(secret ‖ k_raw) — circular | ✅ |
+| Quantum resistance | Grover: 2^128 — infeasible | ✅ |
 
 **Shor resistance analysis:**
 ```
@@ -124,7 +124,7 @@ This is a fixed-point equation:
 → No known algebraic shortcut
 ```
 
-Full verification: `bin/fpow_curve256189.sage`
+Full verification: `bin/src_test/fpow_curve256189.sage`
 
 > **Note:** FPOW is a novel construction not found in surveyed literature at time of writing. It is kept as a research contribution pending formal peer review. HFE is preserved in `lib/src/hfe.dart` for historical reference.
 
@@ -237,19 +237,22 @@ final plaintext = AESGCM.decrypt(
 
 ## Running Tests
 ```bash
-dart bin/test_field.dart
-dart bin/test_montgomery.dart
-dart bin/test_edwards.dart
-dart bin/test_eddsa.dart
-dart bin/test_elligator.dart
-dart bin/test_validation.dart
-dart bin/test_blinding.dart
-dart bin/test_x256189.dart
-dart bin/test_hkdf.dart
-dart bin/test_hfe_security.dart
-dart bin/test_aesgcm.dart
-dart bin/test_batch_verify.dart
-dart bin/test_audit.dart
+dart bin/src_test/fpow_curve256189.sage
+dart bin/src_test/safecurves_curve256189.sage
+dart bin/src_test/test_field.dart
+dart bin/src_test/test_montgomery.dart
+dart bin/src_test/test_edwards.dart
+dart bin/src_test/test_eddsa.dart
+dart bin/src_test/test_elligator.dart
+dart bin/src_test/test_validation.dart
+dart bin/src_test/test_blinding.dart
+dart bin/src_test/test_fpow.dart
+dart bin/src_test/test_x256189.dart
+dart bin/src_test/test_hkdf.dart
+dart bin/src_test/test_hfe_security.dart
+dart bin/src_test/test_aesgcm.dart
+dart bin/src_test/test_batch_verify.dart
+dart bin/src_test/test_audit.dart
 ```
 
 ---

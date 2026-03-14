@@ -5,15 +5,16 @@
 // Each test simulates a real-world cryptographic attack vector
 import 'dart:typed_data';
 import 'dart:math';
-import 'src/params.dart';
-import 'src/montgomery.dart';
-import 'src/eddsa.dart';
-import 'src/x256189.dart';
-import 'src/hkdf.dart';
-import 'src/aesgcm.dart';
-import 'src/hfe.dart';
-import 'src/elligator.dart';
-import 'src/batch_verify.dart';
+import '../src/params.dart';
+import '../src/montgomery.dart';
+import '../src/eddsa.dart';
+import '../src/x256189.dart';
+import '../src/hkdf.dart';
+import '../src/aesgcm.dart';
+import '../src/hfe.dart';
+import '../src/elligator.dart';
+import '../src/batch_verify.dart';
+import '../src/fpow.dart';
 
 // ─────────────────────────────────────────────
 // Audit result tracker
@@ -44,7 +45,7 @@ void main() {
   print('╔══════════════════════════════════════╗');
   print('║  Curve256189 Cryptographic Audit     ║');
   print('║  Full Attack Surface Coverage        ║');
-  print('║  Date: March 14, 2026 - 05:31        ║');
+  print('║  Date: March 15, 2026                ║');
   print('╚══════════════════════════════════════╝');
 
   _auditScalarMultiplication();
@@ -65,9 +66,9 @@ void main() {
   print('║  FAILED: $_failed');
   print('║  TOTAL:  ${_passed + _failed}');
   if (_failed == 0) {
-    print('║  STATUS: ✅ ALL TESTS PASSED          ║');
+    print('║  STATUS: ✅ ALL TESTS PASSED         ║');
   } else {
-    print('║  STATUS: ❌ SOME TESTS FAILED         ║');
+    print('║  STATUS: ❌ SOME TESTS FAILED        ║');
   }
   print('╚══════════════════════════════════════╝');
 }
@@ -663,15 +664,17 @@ void _auditCrossComponent() {
   _check('EdDSA sign over ECDH shared secret — verify works',
       EdDSA.verify(sharedMsg, edSig, eddsaKP['publicKey']!));
 
-  // HFE + EdDSA — wrapped scalar still produces valid signature
-  final constants = HFE.deriveConstants(seedAlice);
-  final rawScalar = BigInt.from(999999999);
-  final wrapped   = HFE.wrap(rawScalar,
-      constants['a']!, constants['b']!,
-      constants['c']!, constants['d']!,
-      constants['coeff']!);
-  _check('HFE wrapped scalar in valid range for EdDSA',
-      wrapped >= BigInt.zero && wrapped < Curve256189Params.n);
+  // FPOW + EdDSA — wrapped scalar valid dan terlindungi
+  final fpowSecret = FPOW.deriveSecret(seedAlice);
+  final fpowWrapped = FPOW.wrap(BigInt.from(999999999), fpowSecret);
+  _check('FPOW wrapped scalar in valid range for EdDSA',
+      fpowWrapped >= BigInt.zero && fpowWrapped < Curve256189Params.n);
+
+  // FPOW: k_wrapped != k_raw (Shor resistance)
+  final kRaw = BigInt.from(999999999);
+  final kWrapped = FPOW.wrap(kRaw, fpowSecret);
+  _check('FPOW — k_wrapped != k_raw (Shor resistance layer active)',
+      kWrapped != kRaw);
 }
 
 // ─────────────────────────────────────────────

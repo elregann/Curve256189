@@ -1,7 +1,7 @@
 // test_blinding.dart
 // import 'src/montgomery.dart';
-import 'src/montgomery.dart';
-import 'src/params.dart';
+import '../src/montgomery.dart';
+import '../src/params.dart';
 
 void main() {
   print('=== Test Scalar Blinding Curve256189 ===');

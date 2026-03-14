@@ -3,7 +3,7 @@ import 'package:crypto/crypto.dart';
 import 'edwards.dart';
 import 'montgomery.dart';
 import 'params.dart';
-import 'hfe.dart';
+import 'fpow.dart';
 import 'field.dart';
 
 class EdDSA {
@@ -56,15 +56,8 @@ class EdDSA {
     skBytes[31] |= 64;
 
     final skRaw = _bytesToBigInt(skBytes) % n;
-    final constants = HFE.deriveConstants(seed);
-    final sk = HFE.wrap(
-      skRaw,
-      constants['a']!,
-      constants['b']!,
-      constants['c']!,
-      constants['d']!,
-      constants['coeff']!,
-    );
+    final secret = FPOW.deriveSecret(seed);
+    final sk = FPOW.wrap(skRaw, secret);
 
     // Public key computation: pk = sk * G
     final pk = TwistedEdwards.scalarMul(sk, G);
@@ -86,15 +79,8 @@ class EdDSA {
     skBytes[31] |= 64;
 
     final skRaw = _bytesToBigInt(skBytes) % n;
-    final constants = HFE.deriveConstants(privateKey);
-    final sk = HFE.wrap(
-      skRaw,
-      constants['a']!,
-      constants['b']!,
-      constants['c']!,
-      constants['d']!,
-      constants['coeff']!,
-    );
+    final secret = FPOW.deriveSecret(privateKey);
+    final sk = FPOW.wrap(skRaw, secret);
 
     // Generate public key for hashing
     final pkPoint = TwistedEdwards.scalarMul(sk, G);
