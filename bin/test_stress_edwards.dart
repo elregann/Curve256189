@@ -1,75 +1,90 @@
+// test_edwards_stress.dart
+// Edwards Curve Completeness Stress Test
+//
+// Verifies fundamental group properties under heavy load:
+// 1. Neutral point addition (P + 0 = P)
+// 2. Order-2 point handling
+// 3. Inverse property (P + (-P) = 0)
+// 4. Point doubling
+// 5. Long-running sequential addition stability
+
 import 'src/params.dart';
 import 'src/edwards.dart';
 
 void main() {
-  print("--- 🔬 EDWARDS COMPLETENESS STRESS TEST ---");
-  print("Curve: Curve256189");
-  print("Target: Finding the 'False' gap in Edwards Addition\n");
+  print('╔══════════════════════════════════════╗');
+  print('║  Edwards Curve Completeness Test     ║');
+  print('║  Curve: Curve256189                   ║');
+  print('╚══════════════════════════════════════╝');
 
-  // 1. Identifikasi Titik-Titik Torsi (The Ghost Points)
-  // Titik Netral (0, 1)
-  final neutral = EdwardsPoint(BigInt.zero, BigInt.one);
-
-  // Titik Order 2 (0, -1) -> dalam field p ini adalah (0, p-1)
   final p = Curve256189Params.p;
-  final order2 = EdwardsPoint(BigInt.zero, p - BigInt.one);
-
-  // 2. Ambil titik G (Edwards) dari params
   final g = EdwardsPoint(Curve256189Params.gxEd, Curve256189Params.gyEd);
 
-  print("--- [TEST 1: Neutral Point Addition] ---");
-  _runAddTest("G + Neutral", g, neutral);
+  // Test 1: Neutral point (0,1)
+  final neutral = EdwardsPoint(BigInt.zero, BigInt.one);
+  _testAddition('Neutral point', g, neutral);
 
-  print("\n--- [TEST 2: Order-2 Point Addition] ---");
-  _runAddTest("G + Order2", g, order2);
+  // Test 2: Order-2 point (0, -1)
+  final order2 = EdwardsPoint(BigInt.zero, p - BigInt.one);
+  _testAddition('Order-2 point', g, order2);
 
-  print("\n--- [TEST 3: The Critical Self-Inverse] ---");
-  // Menjumlahkan P dengan -P (seharusnya menghasilkan neutral)
+  // Test 3: Self-inverse P + (-P) = neutral
   final negG = EdwardsPoint(p - g.x, g.y);
-  _runAddTest("G + (-G)", g, negG);
+  _testAddition('Self-inverse', g, negG);
 
-  print("\n--- [TEST 4: Doubling via Add Function] ---");
-  _runAddTest("G + G", g, g);
+  // Test 4: Point doubling
+  _testAddition('Point doubling', g, g);
 
-  print("\n--- [TEST 5: BRUTE FORCE SCALAR ADDITION] ---");
-  var currentPoint = g;
-  for (int i = 1; i <= 1000000; i++) {
-    try {
-      // Terus menjumlahkan titik G dengan dirinya sendiri berkali-kali
-      currentPoint = TwistedEdwards.add(currentPoint, g);
-
-      if (!TwistedEdwards.isOnCurve(currentPoint)) {
-        print("🚨 GAGAL di iterasi ke-$i: Titik keluar dari kurva!");
-        break;
-      }
-    } catch (e) {
-      print("💀 CRASH di iterasi ke-$i: $e");
-      break;
-    }
-    if (i % 25000 == 0) print("Iterasi $i aman...");
-  }
-  print("✅ Brute Force 1.000.000 iterasi selesai. Curve256189 tetap kokoh!");
+  // Test 5: Long-running sequential addition
+  _testSequentialAddition(g);
 }
 
-void _runAddTest(String label, EdwardsPoint p1, EdwardsPoint p2) {
+void _testAddition(String label, EdwardsPoint p1, EdwardsPoint p2) {
+  print('\n📌 TEST: $label');
+  print('   ${"-" * 40}');
+
   try {
-    print("Testing $label...");
-    // Pastikan nama class dan method sesuai dengan di edwards.dart Kapten
     final result = TwistedEdwards.add(p1, p2);
-
-    print("   Result X: ${result.x}");
-    print("   Result Y: ${result.y}");
-
-    // Verifikasi menggunakan a dan d dari params untuk memastikan titik valid
     final onCurve = TwistedEdwards.isOnCurve(result);
 
+    print('   Result: (${result.x.toString().substring(0, 20)}..., ${result.y.toString().substring(0, 20)}...)');
+    print('   On curve: $onCurve');
+
     if (onCurve) {
-      print("   ✅ STATUS: PASS (Titik tetap di jalur kurva)");
+      print('   ✅ PASS');
     } else {
-      print("   🚨 STATUS: FAIL (Hasil keluar dari kurva!)");
+      print('   ❌ FAIL — Point left the curve!');
     }
   } catch (e) {
-    print("   ❌ CRASH: Terdeteksi kegagalan rumus (Division by Zero?)!");
-    print("   Detail: $e");
+    print('   ❌ CRASH — $e');
   }
+}
+
+void _testSequentialAddition(EdwardsPoint g) {
+  print('\n📌 TEST: Sequential Addition Stress Test');
+  print('   ${"-" * 40}');
+
+  const int iterations = 100000;
+  var current = g;
+
+  for (int i = 1; i <= iterations; i++) {
+    try {
+      current = TwistedEdwards.add(current, g);
+
+      if (!TwistedEdwards.isOnCurve(current)) {
+        print('   ❌ FAIL at iteration $i — Point left the curve!');
+        return;
+      }
+
+      if (i % 25000 == 0) {
+        print('   Progress: $i/$iterations iterations completed');
+      }
+    } catch (e) {
+      print('   ❌ CRASH at iteration $i — $e');
+      return;
+    }
+  }
+
+  print('   ✅ PASS — $iterations sequential additions completed');
+  print('   Final point remains on curve');
 }

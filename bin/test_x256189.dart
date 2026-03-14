@@ -6,7 +6,7 @@ import 'src/eddsa.dart';
 void main() {
   print('=== Test X256189 ECDH + EdDSA Curve256189 ===');
 
-  // Seed Alice dan Bob
+  // Alice and Bob seeds
   final seedAlice = Uint8List.fromList(List.generate(32, (i) => i + 1));
   final seedBob = Uint8List.fromList(List.generate(32, (i) => i + 33));
 
@@ -32,8 +32,8 @@ void main() {
   print('  Bob shared:   ${sharedBob!.map((b) => b.toRadixString(16).padLeft(2, '0')).join()}');
   print('  match? ${sharedAlice.toString() == sharedBob.toString()}');
 
-  // Test 3: Seed berbeda = shared secret berbeda?
-  print('\nTest 3 - Seed berbeda = shared secret berbeda?');
+  // Test 3: Different seeds = different shared secret?
+  print('\nTest 3 - Different seeds = different shared secret?');
   final seedEve = Uint8List.fromList(List.generate(32, (i) => i + 65));
   final eveKP = X256189.generateKeyPair(seedEve);
   final sharedEve = X256189.computeSharedSecret(
@@ -43,8 +43,8 @@ void main() {
   print('  Eve shared: ${sharedEve!.map((b) => b.toRadixString(16).padLeft(2, '0')).join()}');
   print('  Eve != Alice? ${sharedEve.toString() != sharedAlice.toString()}');
 
-  // Test 4: Public key invalid ditolak?
-  print('\nTest 4 - Public key invalid ditolak?');
+  // Test 4: Invalid public key rejected?
+  print('\nTest 4 - Invalid public key rejected?');
   final invalidPK = Uint8List(32);
   final result = X256189.computeSharedSecret(aliceKP['privateKey']!, invalidPK);
   print('  invalid PK result null? ${result == null}');
@@ -53,15 +53,15 @@ void main() {
   print('\nTest 5 - Public key length 32 bytes?');
   print('  ${aliceKP['publicKey']!.length == 32}');
 
-  // Test 6: EdDSA key pair dari seed yang sama
-  print('\nTest 6 - EdDSA key pair dari seed yang sama?');
+  // Test 6: EdDSA key pair from same seed
+  print('\nTest 6 - EdDSA key pair from same seed?');
   final aliceEdKP = EdDSA.generateKeyPair(seedAlice);
   final bobEdKP = EdDSA.generateKeyPair(seedBob);
   print('  Alice EdDSA PK: ${aliceEdKP['publicKey']!.map((b) => b.toRadixString(16).padLeft(2, '0')).join()}');
   print('  Bob EdDSA PK:   ${bobEdKP['publicKey']!.map((b) => b.toRadixString(16).padLeft(2, '0')).join()}');
-  print('  PK berbeda dari ECDH PK? ${aliceEdKP['publicKey']!.toString() != aliceKP['publicKey']!.toString()}');
+  print('  PK different from ECDH PK? ${aliceEdKP['publicKey']!.toString() != aliceKP['publicKey']!.toString()}');
 
-  // Test 7: Alice sign pesan, verify
+  // Test 7: Alice sign message, verify
   print('\nTest 7 - Alice sign, verify?');
   final message = Uint8List.fromList('Hello X256189!'.codeUnits);
   final signature = EdDSA.sign(message, aliceEdKP['privateKey']!);
@@ -69,8 +69,8 @@ void main() {
   print('  Signature: ${signature.map((b) => b.toRadixString(16).padLeft(2, '0')).join().substring(0, 32)}...');
   print('  Verified? $verified');
 
-  // Test 8: Pesan diubah — verify gagal?
-  print('\nTest 8 - Pesan diubah verify gagal?');
+  // Test 8: Tampered message — verify fails?
+  print('\nTest 8 - Tampered message verify fails?');
   final tamperedMessage = Uint8List.fromList('Hello X256189?'.codeUnits);
   final verifiedTampered = EdDSA.verify(tamperedMessage, signature, aliceEdKP['publicKey']!);
   print('  Verified tampered? $verifiedTampered');

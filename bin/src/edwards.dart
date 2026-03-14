@@ -190,7 +190,7 @@ class TwistedEdwards {
   static EdwardsPoint? decodePoint(Uint8List bytes) {
     if (bytes.length != 33) return null;
 
-    final signX = bytes[32] == 1;
+    final signX = (bytes[32] & 1) == 1;
     final yBytes = bytes.sublist(0, 32);
 
     final y = _bytesToBigInt(yBytes);
