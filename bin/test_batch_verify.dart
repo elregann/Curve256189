@@ -85,8 +85,8 @@ void main() {
   );
   final individualTime = stopwatch.elapsedMilliseconds;
 
-  print('  batch valid? $result6batch');
   print('  individual valid? $result6individual');
-  print('  batch time:      ${batchTime}ms');
+  print('  batch valid? $result6batch');
   print('  individual time: ${individualTime}ms');
+  print('  batch time:      ${batchTime}ms');
 }

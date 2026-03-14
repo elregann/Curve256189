@@ -1,4 +1,4 @@
-// test_edwards_stress.dart
+// test_stress_edwards.dart
 // Edwards Curve Completeness Stress Test
 //
 // Verifies fundamental group properties under heavy load:
@@ -14,7 +14,7 @@ import 'src/edwards.dart';
 void main() {
   print('╔══════════════════════════════════════╗');
   print('║  Edwards Curve Completeness Test     ║');
-  print('║  Curve: Curve256189                   ║');
+  print('║  Curve: Curve256189                  ║');
   print('╚══════════════════════════════════════╝');
 
   final p = Curve256189Params.p;
@@ -46,9 +46,17 @@ void _testAddition(String label, EdwardsPoint p1, EdwardsPoint p2) {
   try {
     final result = TwistedEdwards.add(p1, p2);
     final onCurve = TwistedEdwards.isOnCurve(result);
+    final isNeutral = result.x == BigInt.zero && result.y == BigInt.one;
 
-    print('   Result: (${result.x.toString().substring(0, 20)}..., ${result.y.toString().substring(0, 20)}...)');
+    // Safe print — handle short strings like "0" or "1"
+    final xStr = result.x.toString();
+    final yStr = result.y.toString();
+    final xPreview = xStr.length > 20 ? '${xStr.substring(0, 20)}...' : xStr;
+    final yPreview = yStr.length > 20 ? '${yStr.substring(0, 20)}...' : yStr;
+
+    print('   Result: ($xPreview, $yPreview)');
     print('   On curve: $onCurve');
+    if (isNeutral) print('   Is neutral point (0,1): true');
 
     if (onCurve) {
       print('   ✅ PASS');
