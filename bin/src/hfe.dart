@@ -1,10 +1,14 @@
-// Jacques Patarin — 1996
-// HFE (Hidden Field Equations)
-
-// ECDLP — problem name
-// Elliptic Curve Discrete Logarithm Problem
-
 // hfe.dart
+// Scalar obfuscation layer inspired by HFE structure
+// Jacques Patarin, 1996.
+//
+// Note: This is NOT a full HFE implementation.
+// Operates in Z/nZ (ring modulo curve order n),
+// NOT in GF(p). FieldElement is intentionally NOT used
+// here because FieldElement hardcodes modulus p.
+//
+// e=3 is safe for Dart BigInt.modPow (bug only affects
+// 256-bit exponents, not small constants like e=3).
 import 'params.dart';
 import 'dart:typed_data';
 import 'dart:convert';
@@ -13,32 +17,38 @@ import 'package:crypto/crypto.dart';
 class HFE {
   static final BigInt n = Curve256189Params.n;
 
-  // Degree polynomial F
+  // Polynomial degree e=3 — safe for Dart BigInt.modPow
   static final BigInt e = BigInt.from(3);
 
-  // Transformasi S: x → (a*x + b) mod n
+  // Affine transformation S: x → (a*x + b) mod n
+  // All operations in Z/nZ — NOT GF(p)
   static BigInt _applyS(BigInt x, BigInt a, BigInt b) {
     return ((a * x) + b) % n;
   }
 
-  // Polynomial F: X^3 + coeff*X mod n
+  // Polynomial transformation F: x^3 + coeff*x mod n
+  // modPow safe here — e=3 is a small constant exponent
   static BigInt _applyF(BigInt x, BigInt coeff) {
     return (x.modPow(e, n) + coeff * x) % n;
   }
 
-  // Transformasi T: x → (c*x + d) mod n
+  // Affine transformation T: x → (c*x + d) mod n
   static BigInt _applyT(BigInt x, BigInt c, BigInt d) {
     return ((c * x) + d) % n;
   }
 
-  // Full pipeline: k → S → F → T → k'
+  // Full obfuscation pipeline: k → S → F → T → k'
+  // Input k must be in range [0, n)
+  // Output k' guaranteed in range [0, n)
   static BigInt wrap(BigInt k, BigInt a, BigInt b, BigInt c, BigInt d, BigInt coeff) {
     final sk = _applyS(k, a, b);
     final fsk = _applyF(sk, coeff);
     return _applyT(fsk, c, d);
   }
 
-  // Derive HFE constants dari seed
+  // Derive obfuscation constants from seed via SHA-512
+  // Constants deterministic — same seed always produces same constants
+  // Each constant in range [2, n) to avoid degenerate cases
   static Map<String, BigInt> deriveConstants(Uint8List seed) {
     final input = Uint8List.fromList([...seed, ...utf8.encode('Curve256189-HFE-v1')]);
     final h = sha512.convert(input).bytes;
@@ -52,11 +62,11 @@ class HFE {
     }
 
     return {
-      'a': extract(0, 12),
-      'b': extract(12, 24),
-      'c': extract(24, 36),
-      'd': extract(36, 48),
-      'coeff': extract(48, 60),
+      'a':     extract(0,  12),  // S coefficient
+      'b':     extract(12, 24),  // S constant
+      'c':     extract(24, 36),  // T coefficient
+      'd':     extract(36, 48),  // T constant
+      'coeff': extract(48, 60),  // F polynomial coefficient
     };
   }
 }
