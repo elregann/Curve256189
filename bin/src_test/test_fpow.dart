@@ -1,6 +1,6 @@
 // test_fpow.dart
 // FPOW — Fixed-Point One-Way Wrap verification
-// Tests all properties proven via SageMath (fpow_curve256189.sage)
+// Tests all properties proven via SageMath (fpow_curve256189)
 import 'dart:typed_data';
 import 'dart:math';
 import '../src/fpow.dart';

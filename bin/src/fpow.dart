@@ -13,7 +13,7 @@
 //   wrap(k, secret) = k + H(secret ‖ k) mod n
 //   where H = SHA-512 (one-way function)
 //
-// Properties verified via SageMath (fpow_curve256189.sage):
+// Properties verified via SageMath (fpow_curve256189):
 //   ✅ Non-polynomial — Lagrange interpolation fails
 //   ✅ Statistical uniformity — output ratio ~1.0
 //   ✅ Differential randomness — unique diffs per input
