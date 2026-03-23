@@ -130,23 +130,19 @@ where H = SHA-512 (one-way function)
 | Fixed-point one-way | k_raw = k' − H(secret ‖ k_raw) — circular | ✅ |
 | Fixed-point uniqueness | 0 collisions in 10⁶ samples — prob ≈ 3.45×10⁻⁷¹ | ✅ |
 | Known-plaintext resistance | Without secret → cannot compute H | ✅ |
-| Strict Avalanche (SAC) | Score: 99.25% (Ideal Bit Diffusion) | ✅ |
-| Algebraic Resistance | Linear Homomorphism: False | ✅ |
-| Bit-Bias (Max) | 3.54% (Confirmed Pure Noise) | ✅ |
-| Quantum resistance | Grover: 2¹²⁸.⁶⁵ — Post-Quantum Secure | ✅ |
+| Quantum resistance | Grover: 2¹²⁷ — infeasible per NIST 128-bit standard | ✅ |
 
 **Shor resistance analysis:**
 ```
 Shor's algorithm on ECDLP → recovers k_wrapped
 But k_wrapped ≠ k_raw!
-SAC score 99.25% confirms non-linear bit diffusion
 
 To recover k_raw, attacker must solve:
 k_raw = k_wrapped − H(secret ‖ k_raw) mod n
 
 This is a fixed-point equation:
 → Classical brute force: 2^256
-→ Grover acceleration:   2^128 (still infeasible)
+→ Grover acceleration:   2^127 (still infeasible)
 → No known algebraic shortcut exists
 ```
 
@@ -165,8 +161,6 @@ FPOW adds a second hardness layer on top of ECDLP. An attacker must break both:
 1. **ECDLP** — to recover `k_wrapped` from the public key
 2. **SHA-512 fixed-point inversion** — to recover `k_raw` from `k_wrapped`
 
-The Strict Avalanche Criterion (SAC) test confirms that information leakage from bit-fluctuation is non-existent, providing empirical proof that FPOW behaves as a Random Oracle in a finite field.
-
 No known quantum algorithm efficiently solves step 2.
 
 **Open research questions:**
@@ -175,13 +169,10 @@ No known quantum algorithm efficiently solves step 2.
 - Secret rotation mechanism for forward secrecy
 - Standalone hardness assumption formalization
 
-Full verification:  
-`bin/src_test/fpow_curve256189`  
-`bin/src_test/fpow_attack_results`
-`bin/src_test/fpow_quantum_resistance_test`
+Full verification: `bin/fpow_curve256189.sage`
 
 > **Note:** FPOW is a novel construction not found in surveyed literature at time of writing. It is presented as a research contribution pending formal peer review. HFE is preserved in `lib/src/hfe.dart` for historical reference and to document the research journey that led to this discovery.
----
+```
 
 ## Test Vectors
 
@@ -290,8 +281,8 @@ final plaintext = AESGCM.decrypt(
 
 ## Running Tests
 ```bash
-dart bin/src_test/fpow_curve256189
-dart bin/src_test/safecurves_curve256189
+dart bin/src_test/fpow_curve256189.sage
+dart bin/src_test/safecurves_curve256189.sage
 dart bin/src_test/test_field.dart
 dart bin/src_test/test_montgomery.dart
 dart bin/src_test/test_edwards.dart

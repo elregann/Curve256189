@@ -13,7 +13,7 @@
 //   wrap(k, secret) = k + H(secret ‖ k) mod n
 //   where H = SHA-512 (one-way function)
 //
-// Properties verified via SageMath (fpow_curve256189):
+// Properties verified via SageMath (fpow_curve256189.sage):
 //   ✅ Non-polynomial — Lagrange interpolation fails
 //   ✅ Statistical uniformity — output ratio ~1.0
 //   ✅ Differential randomness — unique diffs per input
@@ -45,7 +45,15 @@ class FPOW {
   // H(secret ‖ k) — deterministic hash mixing
   // Uses double SHA-512 for 1024-bit internal state
   // Output reduced mod n for uniform distribution
-  static BigInt h_(Uint8List secret, BigInt k) {
+  //
+  // Why kBytes appears in both h1 and h2:
+  // h1 = SHA-512(secret ‖ k) — binds secret and k together
+  // h2 = SHA-512(h1 ‖ k)     — strengthens k-dependence
+  //      kBytes in h2 ensures output depends directly on k
+  //      even if h1 propagation is somehow weakened.
+  //      This is "double binding" — k influences output
+  //      through two independent hash paths.
+  static BigInt _computeH(Uint8List secret, BigInt k) {
     final kBytes = _bigIntToBytes(k);
     final h1 = sha512.convert([...secret, ...kBytes]).bytes;
     final h2 = sha512.convert([...h1, ...kBytes]).bytes;
@@ -61,7 +69,7 @@ class FPOW {
   // - Non-polynomial: not recoverable via Lagrange interpolation
   // - Output in range [0, n)
   static BigInt wrap(BigInt k, Uint8List secret) {
-    return (k + h_(secret, k)) % n;
+    return (k + _computeH(secret, k)) % n;
   }
 
   // Derive secret from seed via SHA-256 + domain separation
@@ -75,7 +83,11 @@ class FPOW {
   }
 
   // Convert BigInt to 32-byte big-endian array
-  // Big-endian used here for hash input consistency
+  // Big-endian is used intentionally for hash input —
+  // this is an internal function for H computation only.
+  // Note: differs from EdDSA/X256189 which use little-endian
+  // per RFC 7748/8032. These are separate domains:
+  // FPOW hash input (big-endian) vs wire format (little-endian).
   static Uint8List _bigIntToBytes(BigInt value) {
     final bytes = Uint8List(32);
     var v = value;
