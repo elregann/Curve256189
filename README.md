@@ -23,7 +23,9 @@ At this point both the curve and its quadratic twist satisfied the desired struc
 
 In retrospect, the process contains an interesting coincidence: the prime field offset (189), originally chosen without special significance, turned out to be the minimal valid value for (2²⁵⁶ - c), while the suitable Montgomery parameter appeared relatively close to the initial search region. These two results together define the parameters used by **Curve256189**.  
 
-`bin/src_test/found`
+`bin/src_test/found.sage`
+
+---
 
 ## Curve Parameters
 
@@ -172,7 +174,8 @@ No known quantum algorithm efficiently solves step 2.
 Full verification: `bin/fpow_curve256189.sage`
 
 > **Note:** FPOW is a novel construction not found in surveyed literature at time of writing. It is presented as a research contribution pending formal peer review. HFE is preserved in `lib/src/hfe.dart` for historical reference and to document the research journey that led to this discovery.
-```
+
+---
 
 ## Test Vectors
 
