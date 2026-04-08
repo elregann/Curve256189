@@ -1,4 +1,5 @@
 // batch_verify.dart
+
 // Batch verification of Ed256189 signatures
 // Based on batch verification technique by Daniel J. Bernstein (2012)
 // Formalized for Edwards curves by Henry de Valence et al. (2017)

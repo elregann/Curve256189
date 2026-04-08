@@ -1,3 +1,5 @@
+// params.dart
+
 // Curve256189 Parameters
 // Montgomery: y² = x³ + Ax² + x
 // Twisted Edwards: ax² + y² = 1 + dx²y²

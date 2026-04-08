@@ -1,4 +1,5 @@
 // fpow.dart
+
 // FPOW — Fixed-Point One-Way Wrap
 // Curve256189 Research — March 2026
 // Ismael Urzaiz Aranda, Tangerang Selatan

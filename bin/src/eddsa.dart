@@ -1,3 +1,5 @@
+// eddsa.dart
+
 import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'edwards.dart';

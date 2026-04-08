@@ -1,4 +1,5 @@
 // aesgcm.dart
+
 // AES-256-GCM authenticated encryption per NIST SP 800-38D
 // Provides confidentiality + integrity + authenticity in a single pass
 import 'dart:typed_data';

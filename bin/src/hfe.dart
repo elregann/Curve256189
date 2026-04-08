@@ -1,4 +1,5 @@
 // hfe.dart
+
 // Scalar obfuscation layer — HFE-inspired pipeline
 // Jacques Patarin, 1996.
 //
