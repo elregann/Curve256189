@@ -3,9 +3,7 @@
 // Tests: obfuscation, non-reversibility, collision, statistical randomness
 import 'dart:typed_data';
 import 'dart:math';
-import '../src/hfe.dart';
-import '../src/eddsa.dart';
-import '../src/params.dart';
+import 'package:curve256189/curve256189.dart';
 
 void main() {
   print('=== Test HFE Security Layer Curve256189 ===');

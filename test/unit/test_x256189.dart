@@ -1,7 +1,6 @@
 // test_x256189.dart
 import 'dart:typed_data';
-import '../src/x256189.dart';
-import '../src/eddsa.dart';
+import 'package:curve256189/curve256189.dart';
 
 void main() {
   print('=== Test X256189 ECDH + EdDSA Curve256189 ===');

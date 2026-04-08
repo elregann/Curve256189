@@ -8,7 +8,7 @@
 //
 // Note: twist cofactor = 4 (= 2²) is EXPECTED and SAFE for curves
 // with main curve cofactor = 4. Only odd small factors are dangerous.
-import 'src/params.dart';
+import 'package:curve256189/curve256189.dart';
 
 // Miller-Rabin primality test (deterministic for our range)
 bool _isPrime(BigInt n) {

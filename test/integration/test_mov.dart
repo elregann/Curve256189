@@ -5,7 +5,7 @@
 // when the embedding degree k is small. For secure curves, k must be large
 // (typically > (log p)/8 ≈ 32 for 256-bit curves).
 
-import 'src/params.dart';
+import 'package:curve256189/curve256189.dart';
 
 void main() {
   print('╔══════════════════════════════════════╗');

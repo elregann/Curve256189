@@ -1,6 +1,5 @@
 // test_debug.dart
-import 'src/edwards.dart';
-import 'src/montgomery.dart';
+import 'package:curve256189/curve256189.dart';
 
 void main() {
   final G = TwistedEdwards.fromMontgomery(MontgomeryPoint.G);

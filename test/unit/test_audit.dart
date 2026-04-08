@@ -5,16 +5,7 @@
 // Each test simulates a real-world cryptographic attack vector
 import 'dart:typed_data';
 import 'dart:math';
-import '../src/params.dart';
-import '../src/montgomery.dart';
-import '../src/eddsa.dart';
-import '../src/x256189.dart';
-import '../src/hkdf.dart';
-import '../src/aesgcm.dart';
-import '../src/hfe.dart';
-import '../src/elligator.dart';
-import '../src/batch_verify.dart';
-import '../src/fpow.dart';
+import 'package:curve256189/curve256189.dart';
 
 // ─────────────────────────────────────────────
 // Audit result tracker

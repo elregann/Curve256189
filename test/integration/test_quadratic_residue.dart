@@ -5,7 +5,7 @@
 // This test verifies that approximately 50% of small integers
 // are quadratic residues, which is expected by number theory.
 
-import 'src/params.dart';
+import 'package:curve256189/curve256189.dart';
 
 void main() {
   print('╔══════════════════════════════════════╗');

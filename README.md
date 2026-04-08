@@ -23,7 +23,7 @@ At this point both the curve and its quadratic twist satisfied the desired struc
 
 In retrospect, the process contains an interesting coincidence: the prime field offset (189), originally chosen without special significance, turned out to be the minimal valid value for (2²⁵⁶ - c), while the suitable Montgomery parameter appeared relatively close to the initial search region. These two results together define the parameters used by **Curve256189**.  
 
-`bin/src_test/found.sage`
+`test/unit/found.sage`
 
 ---
 
@@ -78,7 +78,7 @@ Curve256189 passes all 11 SafeCurves criteria — verified via SageMath:
 
 **Total: 11/11 Criteria met — SafeCurves compliant! ✅**
 
-Full verification: `bin/src_test/safecurves_curve256189`
+Full verification: `test/unit/safecurves_curve256189.sage`
 
 ---
 
@@ -171,7 +171,7 @@ No known quantum algorithm efficiently solves step 2.
 - Secret rotation mechanism for forward secrecy
 - Standalone hardness assumption formalization
 
-Full verification: `bin/fpow_curve256189.sage`
+Full verification: `test/unit/fpow_curve256189.sage`
 
 > **Note:** FPOW is a novel construction not found in surveyed literature at time of writing. It is presented as a research contribution pending formal peer review. HFE is preserved in `lib/src/hfe.dart` for historical reference and to document the research journey that led to this discovery.
 
@@ -219,7 +219,7 @@ Tag:       530f8afbc74536b9a963b4f1c4cb738b  ← NIST verified
 
 ### EdDSA — Sign and Verify
 ```dart
-import 'package:curve256189/src/eddsa.dart';
+import 'package:curve256189/curve256189.dart';
 import 'dart:typed_data';
 
 // Generate key pair
@@ -236,8 +236,7 @@ final valid = EdDSA.verify(message, signature, keyPair['publicKey']!);
 
 ### X256189 — ECDH Key Exchange
 ```dart
-import 'package:curve256189/src/x256189.dart';
-import 'package:curve256189/src/hkdf.dart';
+import 'package:curve256189/curve256189.dart';
 import 'dart:typed_data';
 
 // Alice
@@ -261,7 +260,7 @@ final key = HKDF.derive(
 
 ### AES-GCM — Encrypt and Decrypt
 ```dart
-import 'package:curve256189/src/aesgcm.dart';
+import 'package:curve256189/curve256189.dart';
 import 'dart:typed_data';
 
 // Encrypt
@@ -284,22 +283,22 @@ final plaintext = AESGCM.decrypt(
 
 ## Running Tests
 ```bash
-dart bin/src_test/fpow_curve256189.sage
-dart bin/src_test/safecurves_curve256189.sage
-dart bin/src_test/test_field.dart
-dart bin/src_test/test_montgomery.dart
-dart bin/src_test/test_edwards.dart
-dart bin/src_test/test_eddsa.dart
-dart bin/src_test/test_elligator.dart
-dart bin/src_test/test_validation.dart
-dart bin/src_test/test_blinding.dart
-dart bin/src_test/test_fpow.dart
-dart bin/src_test/test_x256189.dart
-dart bin/src_test/test_hkdf.dart
-dart bin/src_test/test_hfe_security.dart
-dart bin/src_test/test_aesgcm.dart
-dart bin/src_test/test_batch_verify.dart
-dart bin/src_test/test_audit.dart
+dart test/unit/fpow_curve256189.sage
+dart test/unit/safecurves_curve256189.sage
+dart test/unit/test_aesgcm.dart
+dart test/unit/test_audit.dart
+dart test/unit/test_batch_verify.dart
+dart test/unit/test_blinding.dart
+dart test/unit/test_eddsa.dart
+dart test/unit/test_edwards.dart
+dart test/unit/test_elligator.dart
+dart test/unit/test_field.dart
+dart test/unit/test_fpow.dart
+dart test/unit/test_hfe_security.dart
+dart test/unit/test_hkdf.dart
+dart test/unit/test_montgomery.dart
+dart test/unit/test_validation.dart
+dart test/unit/test_x256189.dart
 ```
 
 ---

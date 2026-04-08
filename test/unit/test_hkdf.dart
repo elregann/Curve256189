@@ -1,7 +1,6 @@
 // test_hkdf.dart
 import 'dart:typed_data';
-import '../src/hkdf.dart';
-import '../src/x256189.dart';
+import 'package:curve256189/curve256189.dart';
 
 void main() {
   print('=== Test HKDF Curve256189 ===');

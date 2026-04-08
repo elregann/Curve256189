@@ -4,8 +4,7 @@
 // Formalized for Edwards curves by Henry de Valence et al. (2017)
 // Adapted for Curve256189 by Ismael Urzaiz Aranda (2026)
 import 'dart:typed_data';
-import '../src/eddsa.dart';
-import '../src/batch_verify.dart';
+import 'package:curve256189/curve256189.dart';
 
 void main() {
   print('=== Batch Verification Ed256189 ===');

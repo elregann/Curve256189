@@ -1,5 +1,5 @@
 import 'dart:typed_data';
-import '../src/eddsa.dart';
+import 'package:curve256189/curve256189.dart';
 
 void main() {
   print('=== Test EdDSA Curve256189 ===\n');

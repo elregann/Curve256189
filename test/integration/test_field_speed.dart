@@ -6,11 +6,7 @@
 // to ensure accurate Just-In-Time compilation measurements.
 
 import 'dart:math';
-import 'src/field.dart';
-import 'src/montgomery.dart';
-import 'src/edwards.dart';
-import 'src/eddsa.dart';
-import 'src/params.dart';
+import 'package:curve256189/curve256189.dart';
 
 void main() {
   print('╔══════════════════════════════════════╗');

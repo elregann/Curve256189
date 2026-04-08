@@ -8,8 +8,7 @@
 // 4. Point doubling
 // 5. Long-running sequential addition stability
 
-import 'src/params.dart';
-import 'src/edwards.dart';
+import 'package:curve256189/curve256189.dart';
 
 void main() {
   print('╔══════════════════════════════════════╗');

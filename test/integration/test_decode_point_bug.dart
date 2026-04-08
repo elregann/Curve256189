@@ -9,9 +9,7 @@
 // Each test uses the base point to demonstrate specific edge cases.
 
 import 'dart:typed_data';
-import 'src/edwards.dart';
-import 'src/field.dart';
-import 'src/params.dart';
+import 'package:curve256189/curve256189.dart';
 
 // ─────────────────────────────────────────────
 // Test result tracker

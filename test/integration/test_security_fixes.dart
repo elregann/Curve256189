@@ -9,10 +9,7 @@
 
 import 'dart:math';
 import 'dart:typed_data';
-import 'src/edwards.dart';
-import 'src/montgomery.dart';
-import 'src/x256189.dart';
-import 'src/params.dart';
+import 'package:curve256189/curve256189.dart';
 
 void main() {
   print('╔══════════════════════════════════════╗');

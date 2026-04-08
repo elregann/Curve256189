@@ -1,9 +1,7 @@
 // test_aesgcm.dart
 // AES-256-GCM tests per NIST SP 800-38D
 import 'dart:typed_data';
-import '../src/aesgcm.dart';
-import '../src/x256189.dart';
-import '../src/hkdf.dart';
+import 'package:curve256189/curve256189.dart';
 
 void main() {
   print('=== Test AES-256-GCM Curve256189 ===');

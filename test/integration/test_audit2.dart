@@ -7,9 +7,7 @@
 
 import 'dart:math';
 import 'dart:typed_data';
-import 'src/eddsa.dart';
-import 'src/edwards.dart';
-import 'src/params.dart';
+import 'package:curve256189/curve256189.dart';
 
 class Curve256189Test {
   static final Random _rand = Random.secure();

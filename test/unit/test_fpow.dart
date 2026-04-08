@@ -3,8 +3,7 @@
 // Tests all properties proven via SageMath (fpow_curve256189.sage)
 import 'dart:typed_data';
 import 'dart:math';
-import '../src/fpow.dart';
-import '../src/params.dart';
+import 'package:curve256189/curve256189.dart';
 
 void main() {
   print('=== Test FPOW — Fixed-Point One-Way Wrap ===');

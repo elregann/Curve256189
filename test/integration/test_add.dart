@@ -1,6 +1,6 @@
 // test_add.dart
 
-import 'bin/curve256189/curve256189.dart';
+import 'package:curve256189/curve256189.dart';
 
 void main() {
   print('=== Test Edwards add() Consistency ===');
