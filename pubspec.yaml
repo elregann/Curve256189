@@ -1,17 +1,23 @@
 name: curve256189
-description: A sample command-line application with basic argument parsing.
-version: 0.0.1
-# repository: https://github.com/my_org/my_repo
+description: >
+  High-security elliptic curve cryptography (Curve256189) for Dart. 
+  Features SafeCurves compliance (11/11) and FPOW scalar hardening.
+version: 1.0.0
+repository: https://github.com/elregann/Curve256189
+homepage: https://github.com/elregann/Curve256189
+
+topics:
+  - cryptography
+  - security
+  - ecc
+  - blockchain
 
 environment:
-  sdk: ^3.10.4
+  sdk: '>=3.0.0 <4.0.0'
 
-# Add regular dependencies here.
 dependencies:
-  args: ^2.7.0
   crypto: ^3.0.3
-  pointycastle: ^3.7.3
 
 dev_dependencies:
-  lints: ^6.0.0
-  test: ^1.25.6
+  lints: ^3.0.0
+  test: ^1.24.0
