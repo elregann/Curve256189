@@ -1,4 +1,5 @@
-// curve256189_mov_test.dart
+// test_mov.dart
+
 // MOV Attack Vulnerability Test for Curve256189
 //
 // MOV (Menezes-Okamoto-Vanstone) attack reduces ECDLP to DLP in GF(p^k)

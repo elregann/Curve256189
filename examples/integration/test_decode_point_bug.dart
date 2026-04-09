@@ -1,4 +1,5 @@
 // test_decode_point_bug.dart
+
 // decodePoint Bug Detection Test Suite
 //
 // This test suite verifies that decodePoint correctly handles:

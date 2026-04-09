@@ -1,4 +1,5 @@
 // test_stress_edwards.dart
+
 // Edwards Curve Completeness Stress Test
 //
 // Verifies fundamental group properties under heavy load:

@@ -1,4 +1,5 @@
 // test_quadratic_residue.dart
+
 // Quadratic residue distribution test for Curve256189
 //
 // For p ≡ 3 (mod 4), the square root formula x = a^((p+1)/4) works.
