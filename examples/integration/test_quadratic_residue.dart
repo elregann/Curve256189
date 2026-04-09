@@ -9,23 +9,23 @@
 import 'package:curve256189/curve256189.dart';
 
 void main() {
-  print('╔══════════════════════════════════════╗');
-  print('║  Quadratic Residue Test              ║');
-  print('╚══════════════════════════════════════╝');
+  print('Quadratic Residue Test');
+  print('');
 
   final p = Curve256189Params.p;
-  final exp = (p + BigInt.one) >> 2;
+  final exp = (p + BigInt.one) >> 2;  // Exponent for square root computation when p ≡ 3 mod 4
 
-  print('\n📊 Curve parameters:');
+  print('Curve parameters:');
   print('  p = $p');
   print('  p mod 4 = ${p % BigInt.from(4)}');
-  print('  exp = (p+1)/4 = $exp\n');
+  print('  exp = (p + 1) / 4 = $exp');
+  print('');
 
   const int total = 100;
   int residues = 0;
 
-  print('📋 Testing first $total integers:');
-  print('   ${"-" * 40}');
+  print('Testing the first $total integers:');
+  print('');
 
   for (int i = 1; i <= total; i++) {
     final x2 = BigInt.from(i);
@@ -34,22 +34,24 @@ void main() {
 
     if (isResidue) {
       residues++;
-      print('  ✅ $x2 is quadratic residue');
+      print('  $x2 is a quadratic residue');
     } else {
-      print('  ❌ $x2 is NOT quadratic residue');
+      print('  $x2 is NOT a quadratic residue');
     }
   }
 
   final percentage = (residues / total * 100).toStringAsFixed(1);
-  print('\n📊 Results:');
+  print('');
+  print('Results:');
   print('  Residues: $residues/$total = $percentage%');
-  print('  Expected: ~50% for random distribution');
+  print('  Expected: approximately 50% for a random distribution');
 
   if (residues > 40 && residues < 60) {
-    print('  ✅ PASS — Distribution within expected range');
+    print('  PASS: Distribution is within the expected range.');
   } else {
-    print('  ⚠️  WARNING — Distribution deviates from expected 50%');
+    print('  WARNING: Distribution deviates from the expected 50%.');
   }
 
-  print('\n╚══════════════════════════════════════╝');
+  print('');
+  print('=== Quadratic Residue Test Completed ===');
 }

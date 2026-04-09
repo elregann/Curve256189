@@ -5,11 +5,11 @@ import 'package:curve256189/curve256189.dart';
 void main() {
   final G = TwistedEdwards.fromMontgomery(MontgomeryPoint.G);
 
-  // Round-trip test
+  // Test case 1: Verify round-trip conversion from Montgomery to Edwards and back.
   final G_mont = TwistedEdwards.toMontgomery(G);
   print('G round-trip ok? ${G_mont.x == MontgomeryPoint.G.x}');
 
-  // scalarMul correctness via Montgomery x
+  // Test case 2: Validate scalar multiplication correctness using Montgomery x-coordinate.
   final s3G = TwistedEdwards.scalarMul(BigInt.from(3), G);
   final s4G = TwistedEdwards.scalarMul(BigInt.from(4), G);
   final a4G = Montgomery.add(Montgomery.double_(MontgomeryPoint.G), Montgomery.double_(MontgomeryPoint.G));

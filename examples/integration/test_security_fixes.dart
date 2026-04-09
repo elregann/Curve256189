@@ -3,7 +3,7 @@
 // Security Fix Verification Tests
 //
 // This test suite verifies that security fixes work correctly:
-// 1. decodePoint acceptance rate (~50% for random inputs)
+// 1. decodePoint acceptance rate (approximately 50% for random inputs)
 // 2. Twist points are rejected
 // 3. Quadratic residue detection works
 // 4. X256189 rejects malicious points
@@ -13,21 +13,23 @@ import 'dart:typed_data';
 import 'package:curve256189/curve256189.dart';
 
 void main() {
-  print('╔══════════════════════════════════════╗');
-  print('║  Curve256189 Security Fix Verifier   ║');
-  print('╚══════════════════════════════════════╝');
+  print('Curve256189 Security Fix Verifier');
+  print('');
 
   _testDecodePointAcceptance();
   _testTwistPointRejection();
   _testQuadraticResidueDetection();
   _testEndToEndX256189();
 
-  print('\n╚══════════════════════════════════════╝');
+  print('');
+  print('=== Security Fix Verification Completed ===');
 }
 
+// Test 1: decodePoint Acceptance Rate
+// Verifies that approximately 50% of random 33-byte inputs decode to valid points.
 void _testDecodePointAcceptance() {
-  print('\n📌 TEST 1: decodePoint Acceptance Rate');
-  print('   ${"-" * 40}');
+  print('TEST 1: decodePoint Acceptance Rate');
+  print('');
 
   final random = Random.secure();
   int totalTests = 10000;
@@ -44,7 +46,7 @@ void _testDecodePointAcceptance() {
       accepted++;
 
       if (!TwistedEdwards.isOnCurve(point)) {
-        print('  ❌ CRITICAL: Decoded point not on curve!');
+        print('  CRITICAL: Decoded point is not on the curve.');
         return;
       }
     }
@@ -55,17 +57,20 @@ void _testDecodePointAcceptance() {
   print('  Accepted: $accepted (${rate.toStringAsFixed(2)}%)');
 
   if (rate > 55) {
-    print('  ⚠️  WARNING: Acceptance rate >55% (expected ~50%)');
+    print('  WARNING: Acceptance rate exceeds 55% (expected approximately 50%).');
   } else if (rate < 45) {
-    print('  ⚠️  WARNING: Acceptance rate <45% (expected ~50%)');
+    print('  WARNING: Acceptance rate is below 45% (expected approximately 50%).');
   } else {
-    print('  ✅ GOOD: Acceptance rate within expected range (~50%)');
+    print('  GOOD: Acceptance rate is within the expected range (approximately 50%).');
   }
+  print('');
 }
 
+// Test 2: Twist Point Rejection
+// Verifies that points on the twist curve are correctly rejected.
 void _testTwistPointRejection() {
-  print('\n📌 TEST 2: Twist Point Rejection');
-  print('   ${"-" * 40}');
+  print('TEST 2: Twist Point Rejection');
+  print('');
 
   final p = Curve256189Params.p;
   final A = Curve256189Params.A;
@@ -94,15 +99,18 @@ void _testTwistPointRejection() {
   print('  Rejected by isValidPoint: $twistPointsRejected');
 
   if (twistPointsRejected < twistPointsFound) {
-    print('  ⚠️  WARNING: Some twist points accepted');
+    print('  WARNING: Some twist points were accepted.');
   } else {
-    print('  ✅ GOOD: All twist points rejected');
+    print('  GOOD: All twist points were rejected.');
   }
+  print('');
 }
 
+// Test 3: Quadratic Residue Detection
+// Verifies that quadratic residue detection works correctly.
 void _testQuadraticResidueDetection() {
-  print('\n📌 TEST 3: Quadratic Residue Detection');
-  print('   ${"-" * 40}');
+  print('TEST 3: Quadratic Residue Detection');
+  print('');
 
   final p = Curve256189Params.p;
   final residues = <BigInt>{};
@@ -121,9 +129,11 @@ void _testQuadraticResidueDetection() {
   }
 
   print('  Detected: $detected/${residues.length}');
-  print('  ⚠️  Note: Some residues may not be detected (normal)');
+  print('  Note: Some residues may not be detected (this is normal).');
+  print('');
 }
 
+// Helper function to test whether a value is a quadratic residue modulo p.
 bool _isQuadraticResidue(BigInt a, BigInt p) {
   if (a == BigInt.zero) return true;
   if (a < BigInt.zero || a >= p) a = a % p;
@@ -132,9 +142,11 @@ bool _isQuadraticResidue(BigInt a, BigInt p) {
   return legendre == BigInt.one;
 }
 
+// Test 4: X256189 End-to-End with Malicious Points
+// Verifies that X256189 rejects malicious (twist) points.
 void _testEndToEndX256189() {
-  print('\n📌 TEST 4: X256189 End-to-End with Malicious Points');
-  print('   ${"-" * 40}');
+  print('TEST 4: X256189 End-to-End with Malicious Points');
+  print('');
 
   final random = Random.secure();
   final seed = Uint8List(32);
@@ -143,14 +155,14 @@ void _testEndToEndX256189() {
   }
   final keypair = X256189.generateKeyPair(seed);
 
-  // Test valid public key
+  // Test with a valid public key
   final validSecret = X256189.computeSharedSecret(
       keypair['privateKey']!,
       keypair['publicKey']!
   );
-  print('  Valid public key: ${validSecret != null ? "✅ accepted" : "❌ rejected"}');
+  print('  Valid public key: ${validSecret != null ? "accepted" : "rejected"}');
 
-  // Test twist point
+  // Test with a twist point (invalid public key)
   final p = Curve256189Params.p;
   final A = Curve256189Params.A;
   BigInt? twistX;
@@ -181,8 +193,9 @@ void _testEndToEndX256189() {
         keypair['privateKey']!,
         twistBytes
     );
-    print('  Twist point: ${twistSecret == null ? "✅ rejected" : "❌ accepted"}');
+    print('  Twist point: ${twistSecret == null ? "rejected" : "accepted"}');
   } else {
-    print('  ⚠️  Could not find twist point for testing');
+    print('  Note: Could not find a twist point for testing.');
   }
+  print('');
 }

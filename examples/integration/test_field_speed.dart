@@ -3,16 +3,15 @@
 // Curve256189 Performance Benchmark
 // Measures: field operations, scalar multiplication, point operations
 //
-// Each benchmark runs multiple iterations with warm-up phase
+// Each benchmark runs multiple iterations with a warm-up phase
 // to ensure accurate Just-In-Time compilation measurements.
 
 import 'dart:math';
 import 'package:curve256189/curve256189.dart';
 
 void main() {
-  print('╔══════════════════════════════════════╗');
-  print('║  Curve256189 Performance Benchmark   ║');
-  print('╚══════════════════════════════════════╝');
+  print('Curve256189 Performance Benchmark');
+  print('');
 
   final random = Random.secure();
 
@@ -32,16 +31,14 @@ void main() {
     return r % Curve256189Params.n;
   }
 
-  // ─────────────────────────────────────────────
-  // 1. Field Multiplication Benchmark
-  // ─────────────────────────────────────────────
-  print('\n📊 Field Multiplication (GF(p))');
-  print('   ${"-" * 40}');
+  // Section 1: Field Multiplication Benchmark (GF(p))
+  print('Field Multiplication (GF(p))');
+  print('');
 
   const fieldIterations = 100000;
   const fieldWarmup = 10000;
 
-  // Warm-up phase
+  // Warm-up phase to stabilize JIT compilation
   final a = randomField();
   final b = randomField();
   for (int i = 0; i < fieldWarmup; i++) {
@@ -57,28 +54,27 @@ void main() {
   stopwatchField.stop();
 
   final fieldTime = stopwatchField.elapsedMicroseconds / fieldIterations;
-  print('   Iterations: $fieldIterations');
-  print('   Total time: ${stopwatchField.elapsedMilliseconds} ms');
-  print('   Avg time:   ${fieldTime.toStringAsFixed(2)} µs/op');
-  print('   Sample:     ${fieldResult.toString().substring(0, 20)}...');
+  print('Iterations: $fieldIterations');
+  print('Total time: ${stopwatchField.elapsedMilliseconds} ms');
+  print('Average time: ${fieldTime.toStringAsFixed(2)} microseconds per operation');
+  print('Sample: ${fieldResult.toString().substring(0, 20)}...');
+  print('');
 
-  // ─────────────────────────────────────────────
-  // 2. Scalar Multiplication Benchmark (Montgomery)
-  // ─────────────────────────────────────────────
-  print('\n📊 Scalar Multiplication — Montgomery Ladder');
-  print('   ${"-" * 40}');
+  // Section 2: Scalar Multiplication Benchmark (Montgomery Ladder)
+  print('Scalar Multiplication (Montgomery Ladder)');
+  print('');
 
   const scalarIterations = 1000;
   const scalarWarmup = 100;
 
-  // Warm-up
+  // Warm-up phase
   final basePoint = MontgomeryPoint.G;
   for (int i = 0; i < scalarWarmup; i++) {
     final k = randomScalar();
     Montgomery.scalarMul(k, basePoint);
   }
 
-  // Measurement
+  // Measurement phase
   final stopwatchScalar = Stopwatch()..start();
   MontgomeryPoint scalarResult = MontgomeryPoint.infinity();
   for (int i = 0; i < scalarIterations; i++) {
@@ -88,32 +84,31 @@ void main() {
   stopwatchScalar.stop();
 
   final scalarTime = stopwatchScalar.elapsedMicroseconds / scalarIterations;
-  print('   Iterations: $scalarIterations');
-  print('   Total time: ${stopwatchScalar.elapsedMilliseconds} ms');
-  print('   Avg time:   ${scalarTime.toStringAsFixed(2)} µs/op');
-  print('   Sample:     x = ${scalarResult.x.toString().substring(0, 20)}...');
+  print('Iterations: $scalarIterations');
+  print('Total time: ${stopwatchScalar.elapsedMilliseconds} ms');
+  print('Average time: ${scalarTime.toStringAsFixed(2)} microseconds per operation');
+  print('Sample: x = ${scalarResult.x.toString().substring(0, 20)}...');
+  print('');
 
-  // ─────────────────────────────────────────────
-  // 3. Point Addition Benchmark (Edwards)
-  // ─────────────────────────────────────────────
-  print('\n📊 Point Addition — Twisted Edwards');
-  print('   ${"-" * 40}');
+  // Section 3: Point Addition Benchmark (Twisted Edwards)
+  print('Point Addition (Twisted Edwards)');
+  print('');
 
   const addIterations = 100000;
   const addWarmup = 10000;
 
-  // Generate two random points
+  // Generate two random points for benchmarking
   final scalar1 = randomScalar();
   final scalar2 = randomScalar();
   final point1 = TwistedEdwards.scalarMul(scalar1, EdDSA.G);
   final point2 = TwistedEdwards.scalarMul(scalar2, EdDSA.G);
 
-  // Warm-up
+  // Warm-up phase
   for (int i = 0; i < addWarmup; i++) {
     TwistedEdwards.add(point1, point2);
   }
 
-  // Measurement
+  // Measurement phase
   final stopwatchAdd = Stopwatch()..start();
   EdwardsPoint addResult = point1;  // Initialize with a valid point
   for (int i = 0; i < addIterations; i++) {
@@ -122,19 +117,15 @@ void main() {
   stopwatchAdd.stop();
 
   final addTime = stopwatchAdd.elapsedMicroseconds / addIterations;
-  print('   Iterations: $addIterations');
-  print('   Total time: ${stopwatchAdd.elapsedMilliseconds} ms');
-  print('   Avg time:   ${addTime.toStringAsFixed(2)} µs/op');
-  print('   Sample:     (${addResult.x.toString().substring(0, 10)}..., ${addResult.y.toString().substring(0, 10)}...)');
+  print('Iterations: $addIterations');
+  print('Total time: ${stopwatchAdd.elapsedMilliseconds} ms');
+  print('Average time: ${addTime.toStringAsFixed(2)} microseconds per operation');
+  print('Sample: (${addResult.x.toString().substring(0, 10)}..., ${addResult.y.toString().substring(0, 10)}...)');
+  print('');
 
-  // ─────────────────────────────────────────────
-  // Summary
-  // ─────────────────────────────────────────────
-  print('\n╔══════════════════════════════════════╗');
-  print('║  BENCHMARK SUMMARY                   ║');
-  print('╠══════════════════════════════════════╣');
-  print('║  Field mul:     ${fieldTime.toStringAsFixed(2).padLeft(8)} µs/op');
-  print('║  Scalar mul:    ${scalarTime.toStringAsFixed(2).padLeft(8)} µs/op');
-  print('║  Point add:     ${addTime.toStringAsFixed(2).padLeft(8)} µs/op');
-  print('╚══════════════════════════════════════╝');
+  // Section 4: Benchmark Summary
+  print('BENCHMARK SUMMARY');
+  print('Field multiplication: ${fieldTime.toStringAsFixed(2)} microseconds per operation');
+  print('Scalar multiplication: ${scalarTime.toStringAsFixed(2)} microseconds per operation');
+  print('Point addition: ${addTime.toStringAsFixed(2)} microseconds per operation');
 }

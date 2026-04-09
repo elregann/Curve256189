@@ -4,10 +4,10 @@ import 'dart:typed_data';
 import 'package:curve256189/curve256189.dart';
 
 void main() {
-  // Seed test
+  // Test case: Use a fixed seed for deterministic constant derivation.
   final seed = Uint8List.fromList(List.generate(32, (i) => i + 1));
 
-  // Derive constants
+  // Derive constants from the seed.
   final constants = HFE.deriveConstants(seed);
   final a = constants['a']!;
   final b = constants['b']!;
@@ -15,22 +15,23 @@ void main() {
   final d = constants['d']!;
   final coeff = constants['coeff']!;
 
-  print('=== Test HFE Curve256189 ===');
+  print('=== Test: HFE Curve256189 ===');
   print('a     = $a');
   print('coeff = $coeff');
 
-  // Test wrap
+  // Test case 1: Verify the wrap function produces a valid scalar.
   final k = BigInt.from(999);
   final kPrime = HFE.wrap(k, a, b, c, d, coeff);
-  print('\nk       = $k');
+  print('');
+  print('k       = $k');
   print('k prime = $kPrime');
   print('k prime valid? ${kPrime > BigInt.zero && kPrime < HFE.n}');
 
-  // Test deterministik
+  // Test case 2: Verify that wrap is deterministic (same input produces same output).
   final kPrime2 = HFE.wrap(k, a, b, c, d, coeff);
-  print('Deterministik? ${kPrime == kPrime2}');
+  print('Deterministic? ${kPrime == kPrime2}');
 
-  // Test berbeda input → berbeda output
+  // Test case 3: Verify that different inputs produce different outputs.
   final kPrime3 = HFE.wrap(BigInt.from(1000), a, b, c, d, coeff);
-  print('Berbeda input → berbeda output? ${kPrime != kPrime3}');
+  print('Different input produces different output? ${kPrime != kPrime3}');
 }

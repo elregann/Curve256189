@@ -1,43 +1,38 @@
 // test_audit.dart
+
 // Cryptographic Security Audit — Curve256189
 // Full attack surface coverage: scalar multiplication, ECDH, EdDSA,
 // AES-GCM, HKDF, HFE, Elligator 2, Batch Verification, cross-component
-// Each test simulates a real-world cryptographic attack vector
+// Each test simulates a real-world cryptographic attack vector.
 import 'dart:typed_data';
 import 'dart:math';
 import 'package:curve256189/curve256189.dart';
 
-// ─────────────────────────────────────────────
 // Audit result tracker
-// ─────────────────────────────────────────────
 int _passed = 0;
 int _failed = 0;
 
 void _check(String name, bool result) {
   if (result) {
-    print('  ✅ PASS — $name');
+    print('  PASS: $name');
     _passed++;
   } else {
-    print('  ❌ FAIL — $name');
+    print('  FAIL: $name');
     _failed++;
   }
 }
 
 void _section(String title) {
-  print('\n══════════════════════════════════════');
-  print('  $title');
-  print('══════════════════════════════════════');
+  print('');
+  print('=== $title ===');
 }
 
-// ─────────────────────────────────────────────
-// Main audit
-// ─────────────────────────────────────────────
+// Main audit entry point
 void main() {
-  print('╔══════════════════════════════════════╗');
-  print('║  Curve256189 Cryptographic Audit     ║');
-  print('║  Full Attack Surface Coverage        ║');
-  print('║  Date: March 15, 2026                ║');
-  print('╚══════════════════════════════════════╝');
+  print('Curve256189 Cryptographic Audit');
+  print('Full Attack Surface Coverage');
+  print('Date: March 15, 2026');
+  print('');
 
   _auditScalarMultiplication();
   _auditECDH();
@@ -49,24 +44,20 @@ void main() {
   _auditBatchVerification();
   _auditCrossComponent();
 
-  // ─── Final report ───
-  print('\n╔══════════════════════════════════════╗');
-  print('║  AUDIT REPORT                        ║');
-  print('╠══════════════════════════════════════╣');
-  print('║  PASSED: $_passed');
-  print('║  FAILED: $_failed');
-  print('║  TOTAL:  ${_passed + _failed}');
+  // Final report
+  print('');
+  print('=== AUDIT REPORT ===');
+  print('PASSED: $_passed');
+  print('FAILED: $_failed');
+  print('TOTAL: ${_passed + _failed}');
   if (_failed == 0) {
-    print('║  STATUS: ✅ ALL TESTS PASSED         ║');
+    print('STATUS: ALL TESTS PASSED');
   } else {
-    print('║  STATUS: ❌ SOME TESTS FAILED        ║');
+    print('STATUS: SOME TESTS FAILED');
   }
-  print('╚══════════════════════════════════════╝');
 }
 
-// ─────────────────────────────────────────────
-// 1. Scalar Multiplication
-// ─────────────────────────────────────────────
+// Section 1: Scalar Multiplication (Montgomery Ladder)
 void _auditScalarMultiplication() {
   _section('1. Scalar Multiplication — Montgomery Ladder');
 
@@ -74,19 +65,17 @@ void _auditScalarMultiplication() {
   final n = Curve256189Params.n;
   final G = MontgomeryPoint.G;
 
-  // Small subgroup attack — order-2 point x=0
-  // Attacker sends low-order point to extract key bits
+  // Small subgroup attack — order-2 point at x = 0
   final lowOrder2 = MontgomeryPoint(BigInt.zero, BigInt.zero);
   _check('Small subgroup attack — order-2 point rejected',
       !Montgomery.isValidPoint(lowOrder2));
 
-  // Small subgroup attack — order-4 point x=p-1
+  // Small subgroup attack — order-4 point at x = p-1
   final lowOrder4 = MontgomeryPoint(p - BigInt.one, BigInt.one);
   _check('Small subgroup attack — order-4 point rejected',
       !Montgomery.isValidPoint(lowOrder4));
 
-  // Invalid curve attack — point not on curve
-  // Attacker sends point on different curve to extract key
+  // Invalid curve attack — point not on the curve
   final offCurve = MontgomeryPoint(BigInt.from(12345), BigInt.from(67890));
   _check('Invalid curve attack — off-curve point rejected',
       !Montgomery.isValidPoint(offCurve));
@@ -96,9 +85,9 @@ void _auditScalarMultiplication() {
   _check('Point at infinity rejected by isValidPoint',
       !Montgomery.isValidPoint(infinity));
 
-  // n*G == infinity (group order correct)
+  // n * G == infinity (group order is correct)
   final nG = Montgomery.scalarMul(n, G);
-  _check('n*G == infinity (group order verified)',
+  _check('n * G == infinity (group order verified)',
       nG.isInfinity);
 
   // Scalar blinding — same result with different random r
@@ -109,26 +98,23 @@ void _auditScalarMultiplication() {
       xR1 == xR2);
 
   // Twist attack — x coordinate on twist curve
-  // For Curve256189, twist points have no valid y — ladder still safe
   final twistX = p - BigInt.from(12345);
   final xTwist = Montgomery.ladderXOnly(k, twistX);
   _check('Twist attack — ladder completes without crash',
-      xTwist != BigInt.zero || xTwist == BigInt.zero); // always true — just must not throw
+      xTwist != BigInt.zero || xTwist == BigInt.zero);  // Always true; ensures no exception
 
   // Zero scalar
   final zeroResult = Montgomery.scalarMul(BigInt.zero, G);
   _check('Zero scalar returns infinity',
       zeroResult.isInfinity);
 
-  // Out of range coordinate rejected
+  // Out-of-range coordinate rejected
   final outOfRange = MontgomeryPoint(p + BigInt.one, BigInt.one);
   _check('Out-of-range x coordinate rejected',
       !Montgomery.isValidPoint(outOfRange));
 }
 
-// ─────────────────────────────────────────────
-// 2. ECDH — X256189
-// ─────────────────────────────────────────────
+// Section 2: ECDH — X256189
 void _auditECDH() {
   _section('2. ECDH — X256189');
 
@@ -137,7 +123,7 @@ void _auditECDH() {
   final aliceKP   = X256189.generateKeyPair(seedAlice);
   final bobKP     = X256189.generateKeyPair(seedBob);
 
-  // Normal ECDH
+  // Normal ECDH key exchange
   final sharedAlice = X256189.computeSharedSecret(
       aliceKP['privateKey']!, bobKP['publicKey']!);
   final sharedBob = X256189.computeSharedSecret(
@@ -146,43 +132,40 @@ void _auditECDH() {
       sharedAlice != null && sharedBob != null &&
           _bytesEqual(sharedAlice, sharedBob));
 
-  // Key reuse attack — same key pair different sessions still safe
+  // Key reuse attack — same key pair across different sessions remains safe
   final shared2 = X256189.computeSharedSecret(
       aliceKP['privateKey']!, bobKP['publicKey']!);
   _check('Key reuse — consistent shared secret',
       shared2 != null && _bytesEqual(sharedAlice!, shared2));
 
   // All-zero shared secret rejected
-  // Attacker sends low-order point hoping for zero shared secret
   final zeroKey = Uint8List(32);
   final zeroResult = X256189.computeSharedSecret(
       aliceKP['privateKey']!, zeroKey);
   _check('All-zero public key rejected',
       zeroResult == null);
 
-  // Invalid public key — wrong length
+  // Invalid public key length
   final shortKey = Uint8List(16);
   final shortResult = X256189.computeSharedSecret(
       aliceKP['privateKey']!, shortKey);
   _check('Invalid public key length rejected',
       shortResult == null);
 
-  // Different seeds = different shared secrets
+  // Different seeds produce different shared secrets
   final seedEve = Uint8List.fromList(List.generate(32, (i) => i + 65));
   final eveKP   = X256189.generateKeyPair(seedEve);
   final sharedEve = X256189.computeSharedSecret(
       eveKP['privateKey']!, bobKP['publicKey']!);
-  _check('Different keys = different shared secrets',
+  _check('Different keys produce different shared secrets',
       sharedEve != null && !_bytesEqual(sharedAlice!, sharedEve));
 
-  // Public key length == 32 bytes
+  // Public key length is exactly 32 bytes
   _check('Public key length == 32 bytes',
       aliceKP['publicKey']!.length == 32);
 }
 
-// ─────────────────────────────────────────────
-// 3. EdDSA — Ed256189
-// ─────────────────────────────────────────────
+// Section 3: EdDSA — Ed256189
 void _auditEdDSA() {
   _section('3. EdDSA — Ed256189');
 
@@ -191,7 +174,7 @@ void _auditEdDSA() {
   final message = Uint8List.fromList('Hello Curve256189!'.codeUnits);
   final sig     = EdDSA.sign(message, kp['privateKey']!);
 
-  // Valid signature verifies
+  // Valid signature verification
   _check('Valid signature verifies',
       EdDSA.verify(message, sig, kp['publicKey']!));
 
@@ -206,30 +189,30 @@ void _auditEdDSA() {
   _check('Wrong public key rejected',
       !EdDSA.verify(message, sig, kp2['publicKey']!));
 
-  // Signature malleability — modified s rejected
+  // Signature malleability — modified s component rejected
   final malleableSig = Uint8List.fromList(sig);
   malleableSig[40] ^= 0x01;
   _check('Signature malleability — modified signature rejected',
       !EdDSA.verify(message, malleableSig, kp['publicKey']!));
 
-  // Nonce reuse detection — same seed + message = same signature (deterministic)
+  // Nonce reuse detection — deterministic signatures
   final sig2 = EdDSA.sign(message, kp['privateKey']!);
-  _check('Deterministic nonce — same input = same signature',
+  _check('Deterministic nonce — same input produces same signature',
       _bytesEqual(sig, sig2));
 
-  // Different messages = different signatures
+  // Different messages produce different signatures
   final sig3 = EdDSA.sign(wrongMsg, kp['privateKey']!);
-  _check('Different messages = different signatures',
+  _check('Different messages produce different signatures',
       !_bytesEqual(sig, sig3));
 
-  // Weak key — all-zero seed
+  // Weak key (all-zero seed) still produces valid signatures
   final zeroSeed = Uint8List(32);
   final zeroKP   = EdDSA.generateKeyPair(zeroSeed);
   final zeroSig  = EdDSA.sign(message, zeroKP['privateKey']!);
   _check('Weak seed (all-zero) — still produces valid signature',
       EdDSA.verify(message, zeroSig, zeroKP['publicKey']!));
 
-  // Signature length == 65 bytes
+  // Signature length is 65 bytes
   _check('Signature length == 65 bytes', sig.length == 65);
 
   // Empty message signing
@@ -238,16 +221,14 @@ void _auditEdDSA() {
   _check('Empty message — sign and verify',
       EdDSA.verify(emptyMsg, emptySig, kp['publicKey']!));
 
-  // Large message signing
+  // Large message signing (10000 bytes)
   final largeMsg = Uint8List.fromList(List.generate(10000, (i) => i % 256));
   final largeSig = EdDSA.sign(largeMsg, kp['privateKey']!);
   _check('Large message (10000 bytes) — sign and verify',
       EdDSA.verify(largeMsg, largeSig, kp['publicKey']!));
 }
 
-// ─────────────────────────────────────────────
-// 4. AES-GCM
-// ─────────────────────────────────────────────
+// Section 4: AES-GCM
 void _auditAESGCM() {
   _section('4. AES-GCM — Authenticated Encryption');
 
@@ -265,14 +246,14 @@ void _auditAESGCM() {
   _check('NIST test vector — empty plaintext tag matches',
       _hexEncode(nistResult.tag) == '530f8afbc74536b9a963b4f1c4cb738b');
 
-  // Round-trip
+  // Encrypt/decrypt round-trip
   final decrypted = AESGCM.decrypt(
       key: key, nonce: nonce,
       ciphertext: result.ciphertext, tag: result.tag);
   _check('Encrypt/decrypt round-trip',
       decrypted != null && _bytesEqual(plain, decrypted));
 
-  // Nonce reuse attack — same nonce different message leaks XOR
+  // Nonce reuse attack — same nonce with different plaintexts
   final plain2    = Uint8List.fromList('Attack at dusk!'.codeUnits);
   final result2   = AESGCM.encrypt(key: key, nonce: nonce, plaintext: plain2);
   _check('Nonce reuse — different plaintexts produce different ciphertexts',
@@ -292,8 +273,7 @@ void _auditAESGCM() {
       AESGCM.decrypt(key: key, nonce: nonce,
           ciphertext: result.ciphertext, tag: tamperedTag) == null);
 
-  // Tag truncation attack — partial tag rejected
-  // (our API enforces 16-byte tag via assert)
+  // Tag truncation attack — short tag rejected
   bool tagTruncationThrows = false;
   try {
     AESGCM.decrypt(key: key, nonce: nonce,
@@ -329,9 +309,7 @@ void _auditAESGCM() {
       emptyDecrypted != null && emptyDecrypted.isEmpty);
 }
 
-// ─────────────────────────────────────────────
-// 5. HKDF
-// ─────────────────────────────────────────────
+// Section 5: HKDF
 void _auditHKDF() {
   _section('5. HKDF — Key Derivation');
 
@@ -344,19 +322,19 @@ void _auditHKDF() {
   _check('HKDF — deterministic output',
       _bytesEqual(key1, key2));
 
-  // Different IKM = different output
+  // Different IKM produces different output
   final ikm2 = Uint8List.fromList(List.generate(32, (i) => i + 33));
   final key3 = HKDF.derive(ikm: ikm2, info: info, length: 32);
-  _check('HKDF — different IKM = different output',
+  _check('HKDF — different IKM produces different output',
       !_bytesEqual(key1, key3));
 
-  // Different info = different output
+  // Different info produces different output
   final info2 = Uint8List.fromList('Different'.codeUnits);
   final key4  = HKDF.derive(ikm: ikm, info: info2, length: 32);
-  _check('HKDF — different info = different output',
+  _check('HKDF — different info produces different output',
       !_bytesEqual(key1, key4));
 
-  // Output length correct
+  // Output length correctness
   final key64 = HKDF.derive(ikm: ikm, info: info, length: 64);
   _check('HKDF — output length 64 bytes correct',
       key64.length == 64);
@@ -376,13 +354,11 @@ void _auditHKDF() {
       info: Uint8List.fromList('AES key'.codeUnits), length: 32);
   final aesNonce = HKDF.derive(ikm: ikm,
       info: Uint8List.fromList('AES nonce'.codeUnits), length: 12);
-  _check('HKDF — AES key != AES nonce prefix',
+  _check('HKDF — AES key prefix differs from AES nonce',
       !_bytesEqual(aesKey.sublist(0, 12), aesNonce));
 }
 
-// ─────────────────────────────────────────────
-// 6. HFE Layer
-// ─────────────────────────────────────────────
+// Section 6: HFE Layer
 void _auditHFE() {
   _section('6. HFE — Hidden Field Equations Layer');
 
@@ -391,7 +367,7 @@ void _auditHFE() {
   final n         = Curve256189Params.n;
   final scalar    = BigInt.parse('123456789012345678901234567890');
 
-  // Wrap produces value in range [0, n)
+  // Wrap produces output in the valid scalar range [0, n)
   final wrapped = HFE.wrap(scalar,
       constants['a']!, constants['b']!,
       constants['c']!, constants['d']!,
@@ -399,7 +375,7 @@ void _auditHFE() {
   _check('HFE wrap — output in valid scalar range',
       wrapped >= BigInt.zero && wrapped < n);
 
-  // Different seeds = different constants = different wrapped values
+  // Different seeds produce different constants and different wrapped values
   final seed2      = Uint8List.fromList(List.generate(32, (i) => i + 33));
   final constants2 = HFE.deriveConstants(seed2);
   final wrapped2   = HFE.wrap(scalar,
@@ -409,7 +385,7 @@ void _auditHFE() {
   _check('HFE — different seeds produce different wrapped scalars',
       wrapped != wrapped2);
 
-  // Different scalars = different wrapped values
+  // Different scalars produce different wrapped values
   final scalar2  = BigInt.parse('987654321098765432109876543210');
   final wrapped3 = HFE.wrap(scalar2,
       constants['a']!, constants['b']!,
@@ -418,11 +394,11 @@ void _auditHFE() {
   _check('HFE — different scalars produce different outputs',
       wrapped != wrapped3);
 
-  // HFE does not produce zero for non-zero input
+  // Non-zero input produces non-zero output
   _check('HFE — non-zero input produces non-zero output',
       wrapped != BigInt.zero);
 
-  // HFE output is deterministic
+  // Deterministic output
   final wrapped4 = HFE.wrap(scalar,
       constants['a']!, constants['b']!,
       constants['c']!, constants['d']!,
@@ -431,9 +407,7 @@ void _auditHFE() {
       wrapped == wrapped4);
 }
 
-// ─────────────────────────────────────────────
-// 7. Elligator 2
-// ─────────────────────────────────────────────
+// Section 7: Elligator 2
 void _auditElligator() {
   _section('7. Elligator 2 — Point Encoding');
 
@@ -450,8 +424,7 @@ void _auditElligator() {
       enc2 != null && enc2 == BigInt.parse(
           '90060513851245929773888543895646150552543321406609327586244787561710211515717'));
 
-  // Encode output is a valid x-coordinate on curve
-  // (point returned by encode is on curve)
+  // Encode output is a valid x-coordinate in the field
   if (enc1 != null) {
     _check('Elligator 2 — output in field range [0, p)',
         enc1 >= BigInt.zero && enc1 < p);
@@ -469,12 +442,11 @@ void _auditElligator() {
   _check('Elligator 2 — encode(p-1) does not crash',
       encPm1 != null && encPm1 >= BigInt.zero && encPm1 < p);
 
-  // Different inputs = different outputs (non-trivial)
+  // Different inputs produce different outputs
   _check('Elligator 2 — different inputs produce different outputs',
       enc1 != null && enc2 != null && enc1 != enc2);
 
-  // Statistical uniformity — output distribution roughly uniform
-  // Sample 100 random inputs, check outputs spread across field
+  // Statistical uniformity — sample 100 random inputs
   final rng     = Random.secure();
   final outputs = <BigInt>{};
   for (int i = 0; i < 100; i++) {
@@ -483,7 +455,7 @@ void _auditElligator() {
     if (out != null) outputs.add(out);
   }
   _check('Elligator 2 — encode produces non-null for most inputs',
-      outputs.length > 90); // At least 90% success rate
+      outputs.length > 90);  // At least 90% success rate
 
   // Decode round-trip where possible
   if (enc1 != null) {
@@ -495,13 +467,11 @@ void _auditElligator() {
   }
 }
 
-// ─────────────────────────────────────────────
-// 8. Batch Verification
-// ─────────────────────────────────────────────
+// Section 8: Batch Verification
 void _auditBatchVerification() {
   _section('8. Batch Verification — Ed256189');
 
-  // Generate 5 valid bundles
+  // Generate 5 valid signature bundles
   final bundles = List.generate(5, (i) {
     final seed = Uint8List.fromList(List.generate(32, (j) => i * 10 + j + 1));
     final kp   = EdDSA.generateKeyPair(seed);
@@ -510,11 +480,11 @@ void _auditBatchVerification() {
     return SignatureBundle(message: msg, signature: sig, publicKey: kp['publicKey']!);
   });
 
-  // All valid
+  // All valid signatures
   _check('Batch — all valid signatures accepted',
       BatchVerify.verify(bundles));
 
-  // One tampered — entire batch rejected
+  // One tampered signature rejects the entire batch
   final tamperedBundles = List<SignatureBundle>.from(bundles);
   final tamperedSig = Uint8List.fromList(bundles[2].signature);
   tamperedSig[40] ^= 0x01;
@@ -525,7 +495,7 @@ void _auditBatchVerification() {
   _check('Batch — one tampered signature rejects entire batch',
       !BatchVerify.verify(tamperedBundles));
 
-  // All invalid — rejected
+  // All invalid signatures rejected
   final allInvalid = bundles.map((b) {
     final bad = Uint8List.fromList(b.signature);
     bad[40] ^= 0xFF;
@@ -534,7 +504,7 @@ void _auditBatchVerification() {
   _check('Batch — all invalid signatures rejected',
       !BatchVerify.verify(allInvalid));
 
-  // Forge attempt — swap signatures between bundles
+  // Signature swap (forgery attempt) rejected
   final swapped = [
     SignatureBundle(message: bundles[0].message,
         signature: bundles[1].signature, publicKey: bundles[0].publicKey),
@@ -544,15 +514,15 @@ void _auditBatchVerification() {
   _check('Batch — signature swap (forge attempt) rejected',
       !BatchVerify.verify(swapped));
 
-  // Empty batch — accepted
+  // Empty batch accepted
   _check('Batch — empty bundle list accepted',
       BatchVerify.verify([]));
 
-  // Single signature fallback
+  // Single signature fallback works
   _check('Batch — single signature fallback works',
       BatchVerify.verify([bundles[0]]));
 
-  // Batch faster than individual for 10 signatures
+  // Batch verification performance with 10 signatures
   final bundles10 = List.generate(10, (i) {
     final seed = Uint8List.fromList(List.generate(32, (j) => i * 7 + j + 1));
     final kp   = EdDSA.generateKeyPair(seed);
@@ -574,9 +544,7 @@ void _auditBatchVerification() {
   print('    batch: ${batchMs}ms  individual: ${individualMs}ms');
 }
 
-// ─────────────────────────────────────────────
-// 9. Cross-Component Attacks
-// ─────────────────────────────────────────────
+// Section 9: Cross-Component Attacks
 void _auditCrossComponent() {
   _section('9. Cross-Component — Integration Attacks');
 
@@ -585,7 +553,7 @@ void _auditCrossComponent() {
   final aliceKP   = X256189.generateKeyPair(seedAlice);
   final bobKP     = X256189.generateKeyPair(seedBob);
 
-  // Full chain: ECDH → HKDF → AES-GCM
+  // Full chain: ECDH -> HKDF -> AES-GCM
   final shared = X256189.computeSharedSecret(
       aliceKP['privateKey']!, bobKP['publicKey']!);
   final aesKey = HKDF.derive(
@@ -612,16 +580,16 @@ void _auditCrossComponent() {
   final decrypted = AESGCM.decrypt(
       key: aesKeyBob, nonce: aesNonceBob,
       ciphertext: encrypted.ciphertext, tag: encrypted.tag);
-  _check('ECDH → HKDF → AES-GCM full chain works',
+  _check('ECDH -> HKDF -> AES-GCM full chain works',
       decrypted != null && _bytesEqual(message, decrypted));
 
-  // ECDH and EdDSA keys are independent from same seed
+  // ECDH and EdDSA keys are independent from the same seed
   final ecdhPK  = aliceKP['publicKey']!;
   final eddsaKP = EdDSA.generateKeyPair(seedAlice);
   _check('ECDH and EdDSA keys are independent (different PK from same seed)',
       !_bytesEqual(ecdhPK, eddsaKP['publicKey']!.sublist(0, 32)));
 
-  // Eve cannot decrypt Alice-Bob message
+  // Eve cannot decrypt the Alice-Bob message
   final seedEve   = Uint8List.fromList(List.generate(32, (i) => i + 65));
   final eveKP     = X256189.generateKeyPair(seedEve);
   final sharedEve = X256189.computeSharedSecret(
@@ -640,37 +608,36 @@ void _auditCrossComponent() {
   _check('Eve cannot decrypt Alice-Bob message',
       eveDecrypted == null);
 
-  // Elligator output as ECDH input — must not crash
+  // Elligator output as ECDH input must not crash
   final elligatorX = Elligator.encode(BigInt.from(42));
   if (elligatorX != null) {
     final elligatorBytes = _bigIntToBytes32(elligatorX);
     X256189.computeSharedSecret(aliceKP['privateKey']!, elligatorBytes);
   }
   _check('Elligator output as ECDH input — handled gracefully',
-      true); // must not throw
+      true);  // Must not throw
 
-  // EdDSA sign + ECDH shared secret as message
+  // EdDSA sign over ECDH shared secret
   final sharedMsg = shared;
   final edSig = EdDSA.sign(sharedMsg, eddsaKP['privateKey']!);
   _check('EdDSA sign over ECDH shared secret — verify works',
       EdDSA.verify(sharedMsg, edSig, eddsaKP['publicKey']!));
 
-  // FPOW + EdDSA — wrapped scalar valid dan terlindungi
+  // FPOW + EdDSA — wrapped scalar is valid and protected
   final fpowSecret = FPOW.deriveSecret(seedAlice);
   final fpowWrapped = FPOW.wrap(BigInt.from(999999999), fpowSecret);
   _check('FPOW wrapped scalar in valid range for EdDSA',
       fpowWrapped >= BigInt.zero && fpowWrapped < Curve256189Params.n);
 
-  // FPOW: k_wrapped != k_raw (Shor resistance)
+  // FPOW: k_wrapped != k_raw (Shor resistance layer active)
   final kRaw = BigInt.from(999999999);
   final kWrapped = FPOW.wrap(kRaw, fpowSecret);
   _check('FPOW — k_wrapped != k_raw (Shor resistance layer active)',
       kWrapped != kRaw);
 }
 
-// ─────────────────────────────────────────────
 // Utilities
-// ─────────────────────────────────────────────
+
 bool _bytesEqual(Uint8List a, Uint8List b) {
   if (a.length != b.length) return false;
   for (int i = 0; i < a.length; i++) {

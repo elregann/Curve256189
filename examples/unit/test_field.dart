@@ -1,41 +1,49 @@
+// test_field.dart
+
 import 'package:curve256189/curve256189.dart';
 
 void main() {
-  print('=== Test Field Operations ===\n');
+  print('=== Test: Field Operations ===');
+  print('');
 
   final p = Curve256189Params.p;
   final a = BigInt.parse('123456789012345678901234567890');
   final b = BigInt.parse('987654321098765432109876543210');
 
-  // Test add
+  // Test case 1: Field addition
   final resultAdd = FieldElement.add(a, b);
-  print('Test Add:');
+  print('Test 1 - Addition:');
   print('  a + b = $resultAdd');
-  print('  Valid? ${resultAdd < p}\n');
+  print('  Valid? ${resultAdd < p}');
+  print('');
 
-  // Test sub
+  // Test case 2: Field subtraction
   final resultSub = FieldElement.sub(a, b);
-  print('Test Sub:');
+  print('Test 2 - Subtraction:');
   print('  a - b = $resultSub');
-  print('  Valid (no negative)? ${resultSub >= BigInt.zero && resultSub < p}\n');
+  print('  Valid (no negative)? ${resultSub >= BigInt.zero && resultSub < p}');
+  print('');
 
-  // Test mul
+  // Test case 3: Field multiplication
   final resultMul = FieldElement.mul(a, b);
-  print('Test Mul:');
+  print('Test 3 - Multiplication:');
   print('  a * b mod p = $resultMul');
-  print('  Valid? ${resultMul < p}\n');
+  print('  Valid? ${resultMul < p}');
+  print('');
 
-  // Test inv
+  // Test case 4: Modular inverse
   final resultInv = FieldElement.inv(a);
-  print('Test Inv:');
+  print('Test 4 - Modular Inverse:');
   print('  inv(a) = $resultInv');
-  print('  a * inv(a) mod p == 1? ${FieldElement.mul(a, resultInv) == BigInt.one}\n');
+  print('  a * inv(a) mod p == 1? ${FieldElement.mul(a, resultInv) == BigInt.one}');
+  print('');
 
-  // Test pow
+  // Test case 5: Modular exponentiation
   final resultPow = FieldElement.pow(a, BigInt.from(3));
-  print('Test Pow:');
+  print('Test 5 - Exponentiation:');
   print('  a^3 mod p = $resultPow');
-  print('  Valid? ${resultPow < p}\n');
+  print('  Valid? ${resultPow < p}');
+  print('');
 
-  print('=== Semua Test Selesai ===');
+  print('=== All Tests Completed ===');
 }

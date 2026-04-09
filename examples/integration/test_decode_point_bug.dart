@@ -3,7 +3,7 @@
 // decodePoint Bug Detection Test Suite
 //
 // This test suite verifies that decodePoint correctly handles:
-// 1. Parity bit extraction (LSB only, not full byte)
+// 1. Parity bit extraction (LSB only, not the full byte)
 // 2. Denominator zero checks (prevents inv(0) calls)
 // 3. Final point validation (on-curve check)
 //
@@ -12,63 +12,53 @@
 import 'dart:typed_data';
 import 'package:curve256189/curve256189.dart';
 
-// ─────────────────────────────────────────────
 // Test result tracker
-// ─────────────────────────────────────────────
 int _passed = 0;
 int _failed = 0;
 
 void _check(String name, bool result) {
   if (result) {
-    print('  ✅ PASS — $name');
+    print('  PASS: $name');
     _passed++;
   } else {
-    print('  ❌ FAIL — $name');
+    print('  FAIL: $name');
     _failed++;
   }
 }
 
 void _section(String title) {
-  print('\n══════════════════════════════════════');
-  print('  $title');
-  print('══════════════════════════════════════');
+  print('');
+  print('=== $title ===');
 }
 
-// ─────────────────────────────────────────────
-// Main test entry
-// ─────────────────────────────────────────────
+// Main test entry point
 void main() {
-  print('╔══════════════════════════════════════╗');
-  print('║  decodePoint Bug Detection Suite     ║');
-  print('╚══════════════════════════════════════╝');
+  print('decodePoint Bug Detection Suite');
+  print('');
 
   _testParityBitHandling();
   _testDenominatorZero();
   _testOnCurveValidation();
 
   // Final report
-  print('\n╔══════════════════════════════════════╗');
-  print('║  TEST REPORT                         ║');
-  print('╠══════════════════════════════════════╣');
-  print('║  PASSED: $_passed');
-  print('║  FAILED: $_failed');
-  print('║  TOTAL:  ${_passed + _failed}');
-  print('╚══════════════════════════════════════╝');
+  print('');
+  print('=== TEST REPORT ===');
+  print('PASSED: $_passed');
+  print('FAILED: $_failed');
+  print('TOTAL: ${_passed + _failed}');
 }
 
-// ─────────────────────────────────────────────
-// Test 1: Parity bit extraction
-// Verifies that only the LSB of the parity byte is used
-// ─────────────────────────────────────────────
+// Section 1: Parity bit extraction
+// Verifies that only the LSB of the parity byte is used.
 void _testParityBitHandling() {
   _section('Test 1: Parity Bit Handling');
 
   final gy = Curve256189Params.gyEd;
   final gx = Curve256189Params.gxEd;
 
-  print('\n  Base point Edwards:');
-  print('    x = $gx (${gx.isOdd ? "odd" : "even"})');
-  print('    y = $gy (${gy.isOdd ? "odd" : "even"})');
+  print('Base point Edwards:');
+  print('  x = $gx (${gx.isOdd ? "odd" : "even"})');
+  print('  y = $gy (${gy.isOdd ? "odd" : "even"})');
 
   // Encode y coordinate to bytes
   final yBytes = _bigIntToBytes(gy);
@@ -93,19 +83,17 @@ void _testParityBitHandling() {
     if (point != null) {
       final actual = point.x.isOdd ? 'odd' : 'even';
       _check(
-        'Parity byte $parity (${test['description']}) → x=$actual',
+        'Parity byte $parity (${test['description']}) -> x=$actual',
         actual == expected,
       );
     } else {
-      _check('Parity byte $parity → decode failed', false);
+      _check('Parity byte $parity -> decode failed', false);
     }
   }
 }
 
-// ─────────────────────────────────────────────
-// Test 2: Denominator zero handling
-// Verifies that decodePoint rejects inputs where denominator = 0
-// ─────────────────────────────────────────────
+// Section 2: Denominator zero handling
+// Verifies that decodePoint rejects inputs where denominator = 0.
 void _testDenominatorZero() {
   _section('Test 2: Denominator Zero Protection');
 
@@ -113,19 +101,19 @@ void _testDenominatorZero() {
   final a = TwistedEdwards.a;
   final d = TwistedEdwards.d;
 
-  print('\n  Curve parameters:');
-  print('    a = $a');
-  print('    d = $d');
+  print('Curve parameters:');
+  print('  a = $a');
+  print('  d = $d');
 
-  // Find y where a - d*y² ≡ 0 (mod p)
-  // y² ≡ a * d⁻¹ (mod p)
+  // Find y such that a - d*y^2 ≡ 0 (mod p)
+  // This means y^2 ≡ a * d^(-1) (mod p)
   BigInt? yZero;
 
   try {
     final dInv = _modInv(d, p);
     final y2Target = (a * dInv) % p;
 
-    // Try to find square root
+    // Attempt to find the square root
     final exp = (p + BigInt.one) >> 2;
     final y1 = y2Target.modPow(exp, p);
     final y2 = (p - y1) % p;
@@ -138,7 +126,7 @@ void _testDenominatorZero() {
   } catch (_) {}
 
   if (yZero != null) {
-    // Found a y that makes denominator zero
+    // A y that makes the denominator zero has been found
     final yBytes = _bigIntToBytes(yZero);
     final bytes = Uint8List(33);
     bytes.setAll(0, yBytes);
@@ -147,31 +135,29 @@ void _testDenominatorZero() {
     final point = TwistedEdwards.decodePoint(bytes);
     _check('decodePoint rejects denominator zero input', point == null);
   } else {
-    // Fallback: test inv(0) behavior
-    print('\n  No denominator zero point found, testing inv(0) directly:');
+    // Fallback: test inv(0) behavior directly
+    print('No denominator zero point found; testing inv(0) directly:');
     try {
       final result = FieldElement.inv(BigInt.zero);
-      _check('FieldElement.inv(0) returns 0 (⚠️ should be undefined)',
+      _check('FieldElement.inv(0) returns 0 (mathematically undefined)',
           result == BigInt.zero);
-      print('    ⚠️  Note: inv(0)=0 is mathematically undefined');
-      print('    ⚠️  decodePoint should check denominator != 0 before calling inv');
+      print('  Note: inv(0)=0 is mathematically undefined');
+      print('  decodePoint should check denominator != 0 before calling inv');
     } catch (e) {
       _check('FieldElement.inv(0) throws exception', true);
     }
   }
 }
 
-// ─────────────────────────────────────────────
-// Test 3: On-curve validation
-// Verifies that decodePoint only returns points on the curve
-// ─────────────────────────────────────────────
+// Section 3: On-curve validation
+// Verifies that decodePoint only returns points that lie on the curve.
 void _testOnCurveValidation() {
   _section('Test 3: On-Curve Validation');
 
   final gy = Curve256189Params.gyEd;
   final yBytes = _bigIntToBytes(gy);
 
-  // Flip the parity bit to force sign change
+  // Flip the parity bit to force a sign change
   final bytesWrongParity = Uint8List(33);
   bytesWrongParity.setAll(0, yBytes);
   bytesWrongParity[32] = gy.isOdd ? 0 : 1;
@@ -180,17 +166,15 @@ void _testOnCurveValidation() {
 
   if (point != null) {
     final onCurve = TwistedEdwards.isOnCurve(point);
-    _check('Decoded point lies on curve', onCurve);
+    _check('Decoded point lies on the curve', onCurve);
   } else {
     _check('Invalid parity input correctly rejected', true);
   }
 }
 
-// ─────────────────────────────────────────────
 // Utilities
-// ─────────────────────────────────────────────
 
-// Convert BigInt to 32-byte little-endian representation
+// Convert a BigInt to a 32-byte little-endian representation.
 Uint8List _bigIntToBytes(BigInt value) {
   final bytes = Uint8List(32);
   var v = value;
@@ -201,7 +185,7 @@ Uint8List _bigIntToBytes(BigInt value) {
   return bytes;
 }
 
-// Modular inverse using extended Euclidean algorithm
+// Compute the modular inverse using the extended Euclidean algorithm.
 BigInt _modInv(BigInt a, BigInt p) {
   BigInt oldR = a, r = p;
   BigInt oldS = BigInt.one, s = BigInt.zero;

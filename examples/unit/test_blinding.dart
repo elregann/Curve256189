@@ -1,14 +1,15 @@
 // test_blinding.dart
-// import 'src/montgomery.dart';
+
 import 'package:curve256189/curve256189.dart';
 
 void main() {
-  print('=== Test Scalar Blinding Curve256189 ===');
+  print('=== Test: Scalar Blinding Curve256189 ===');
 
   final G = MontgomeryPoint.G;
 
-  // Test 1: k*G == k_blind*G?
-  print('\nTest 1 - Hasil sama dengan blinding?');
+  // Test case 1: Verify that k*G produces the same result with blinding enabled.
+  print('');
+  print('Test 1 - Does the result remain the same with blinding?');
   final k = BigInt.parse('12345678901234567890');
   final x1 = Montgomery.ladderXOnly(k, G.x);
   final x2 = Montgomery.ladderXOnly(k, G.x);
@@ -16,24 +17,27 @@ void main() {
   print('  run 1 = $x1');
   print('  run 2 = $x2');
   print('  run 3 = $x3');
-  print('  semua sama? ${x1 == x2 && x2 == x3}');
+  print('  all equal? ${x1 == x2 && x2 == x3}');
 
-  // Test 2: timing berbeda setiap run (blinding aktif)?
-  print('\nTest 2 - Blinding aktif (r berbeda setiap run)?');
+  // Test case 2: Verify that blinding is active (different random r per run).
+  print('');
+  print('Test 2 - Is blinding active (different r per run)?');
   final r1 = Montgomery.blindScalar(k, BigInt.from(1));
   final r2 = Montgomery.blindScalar(k, BigInt.from(2));
-  print('  k + 1*n = $r1');
-  print('  k + 2*n = $r2');
+  print('  k + 1 * n = $r1');
+  print('  k + 2 * n = $r2');
   print('  r1 != r2? ${r1 != r2}');
 
-  // Test 3: n*G masih infinity setelah blinding?
-  print('\nTest 3 - n*G masih infinity?');
+  // Test case 3: Verify that n*G remains the point at infinity after blinding.
+  print('');
+  print('Test 3 - Does n*G remain the point at infinity?');
   final nG = Montgomery.ladderXOnly(Curve256189Params.n, G.x);
-  print('  n*G.x = $nG');
-  print('  infinity? ${nG == BigInt.zero}');
+  print('  n * G.x = $nG');
+  print('  is infinity? ${nG == BigInt.zero}');
 
-  // Test 4: isValidPoint masih bekerja?
-  print('\nTest 4 - isValidPoint masih bekerja?');
+  // Test case 4: Verify that isValidPoint still works correctly.
+  print('');
+  print('Test 4 - Does isValidPoint still work correctly?');
   final kG = Montgomery.scalarMul(k, G);
-  print('  k*G valid? ${Montgomery.isValidPoint(kG)}');
+  print('  k * G is valid? ${Montgomery.isValidPoint(kG)}');
 }
