@@ -27,8 +27,7 @@ class Montgomery {
   static final BigInt A = Curve256189Params.A;
 
   // Optimized constant: a24 = (A + 2) / 4 mod p
-  static final BigInt a24 =
-  FieldElement.mul(FieldElement.add(A, BigInt.two), FieldElement.inv(BigInt.from(4)));
+  static final BigInt a24 = Curve256189Params.a24;
 
   // Point validation: y² = x³ + Ax² + x
   static bool isOnCurve(MontgomeryPoint point) {

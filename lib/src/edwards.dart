@@ -26,8 +26,8 @@ class TwistedEdwards {
   // Twisted Edwards coefficient: a = A + 2
   static final BigInt a = FieldElement.add(A, BigInt.two);
 
-  // Twisted Edwards coefficient: d = A - 2
-  static final BigInt d = FieldElement.sub(A, BigInt.two);
+  // Twisted Edwards coefficient d
+  static final BigInt d = Curve256189Params.d;
 
   // Birational Map: Montgomery (x, y) to Twisted Edwards (u, v)
   static EdwardsPoint fromMontgomery(MontgomeryPoint P) {

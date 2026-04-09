@@ -49,7 +49,7 @@ void main() {
   print('=== AUDIT REPORT ===');
   print('PASSED: $_passed');
   print('FAILED: $_failed');
-  print('TOTAL: ${_passed + _failed}');
+  print('TOTAL : ${_passed + _failed}');
   if (_failed == 0) {
     print('STATUS: ALL TESTS PASSED');
   } else {

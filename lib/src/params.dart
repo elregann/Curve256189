@@ -14,16 +14,14 @@ class Curve256189Params {
 
   // Precomputed Montgomery constant: (A + 2) / 4 mod p
   static final BigInt a24 = BigInt.parse(
-      '45183421064825764087240000763972131628468230599262747728931217572732213985918'
+      '86844066927987146567678238756515930889952488499230423029593188005934847349710'
   );
 
   // Twisted Edwards coefficient: a = A + 2
   static final BigInt aEd = A + BigInt.two;
 
   // Twisted Edwards coefficient d
-  static final BigInt d = BigInt.parse(
-      '37923678341782778346812307868082839651375912191935673838064381839050879487433'
-  );
+  static final BigInt d = BigInt.from(479595);
 
   // Curve cofactor h
   static final int h = 4;

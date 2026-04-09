@@ -1,4 +1,4 @@
-// test_audit2.dart
+// test_suite.dart
 
 // Curve256189 Test Suite
 // Covers: group law, EdDSA sign/verify, forgery resistance

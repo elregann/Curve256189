@@ -1,4 +1,4 @@
-// test_audit3.dart
+// security_test_suite.dart
 
 // Curve256189 Security-Focused Test Suite
 // Covers: point validation, signature non-malleability, encode/decode round-trip
@@ -50,9 +50,11 @@ class Curve256189SecurityTest {
 
     // Statistical check: a random 33-byte string should almost never decode to a valid point.
     // Probability is approximately (number of valid points) / 2^264, which is negligible.
-    if (totalDecodes > 0) {
-      print('WARNING: $totalDecodes random inputs decoded to points');
-      print('  This is statistically unexpected but not necessarily a failure');
+    // Statistical check
+    if (totalDecodes > 50000) {
+      print('NOTE: $totalDecodes random inputs decoded (~50% - expected with Elligator 2)');
+    } else if (totalDecodes > 0) {
+      print('WARNING: $totalDecodes random inputs decoded (expected ~50000)');
     }
 
     print('PASS: All decoded points are on the curve');
