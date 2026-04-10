@@ -23,7 +23,7 @@ At this point both the curve and its quadratic twist satisfied the desired struc
 
 In retrospect, the process contains an interesting coincidence: the prime field offset (189), originally chosen without special significance, turned out to be the minimal valid value for (2²⁵⁶ - c), while the suitable Montgomery parameter appeared relatively close to the initial search region. These two results together define the parameters used by **Curve256189**.  
 
-`test/unit/found.sage`
+`examples/unit/found.sage`
 
 ---
 
@@ -78,7 +78,7 @@ Curve256189 passes all 11 SafeCurves criteria — verified via SageMath:
 
 **Total: 11/11 Criteria met — SafeCurves compliant! ✅**
 
-Full verification: `test/unit/safecurves_curve256189.sage`
+Full verification: `examples/unit/safecurves_curve256189.sage`
 
 ---
 
@@ -171,11 +171,10 @@ No known quantum algorithm efficiently solves step 2.
 - Secret rotation mechanism for forward secrecy
 - Standalone hardness assumption formalization
 
-Full verification: `test/unit/fpow_curve256189.sage`
+Full verification: `examples/unit/fpow_curve256189.sage`
 
 > **Note:** FPOW is a novel construction not found in surveyed literature at time of writing. It is presented as a research contribution pending formal peer review. HFE is preserved in `lib/src/hfe.dart` for historical reference and to document the research journey that led to this discovery.
 
----
 
 ## Test Vectors
 
@@ -210,7 +209,7 @@ encode(42) = 5148137943138257597607902393840502335556265399274299942700735316192
 Key:       0000000000000000000000000000000000000000000000000000000000000000
 Nonce:     000000000000000000000000
 Plaintext: (empty)
-Tag:       530f8afbc74536b9a963b4f1c4cb738b  ← NIST verified
+Tag:       530f8afbc74536b9a963b4f1c4cb738b (NIST verified)
 ```
 
 ---
@@ -283,29 +282,29 @@ final plaintext = AESGCM.decrypt(
 
 ## Running Tests
 ```bash
-dart test/unit/fpow_curve256189.sage
-dart test/unit/safecurves_curve256189.sage
-dart test/unit/test_aesgcm.dart
-dart test/unit/test_audit.dart
-dart test/unit/test_batch_verify.dart
-dart test/unit/test_blinding.dart
-dart test/unit/test_eddsa.dart
-dart test/unit/test_edwards.dart
-dart test/unit/test_elligator.dart
-dart test/unit/test_field.dart
-dart test/unit/test_fpow.dart
-dart test/unit/test_hfe_security.dart
-dart test/unit/test_hkdf.dart
-dart test/unit/test_montgomery.dart
-dart test/unit/test_validation.dart
-dart test/unit/test_x256189.dart
+dart examples/unit/fpow_curve256189.sage
+dart examples/unit/safecurves_curve256189.sage
+dart examples/unit/test_aesgcm.dart
+dart examples/unit/test_audit.dart
+dart examples/unit/test_batch_verify.dart
+dart examples/unit/test_blinding.dart
+dart examples/unit/test_eddsa.dart
+dart examples/unit/test_edwards.dart
+dart examples/unit/test_elligator.dart
+dart examples/unit/test_field.dart
+dart examples/unit/test_fpow.dart
+dart examples/unit/test_hfe_security.dart
+dart examples/unit/test_hkdf.dart
+dart examples/unit/test_montgomery.dart
+dart examples/unit/test_validation.dart
+dart examples/unit/test_x256189.dart
 ```
 
 ---
 
 ## Implementation Notes
 
-- **No `BigInt.modPow`** — Dart's `BigInt.modPow` has a known bug for 256-bit exponents. All modular exponentiation uses a safe square-and-multiply implementation in `FieldElement.pow()`.
+- **No `BigInt.modPow`** — Dart's `BigInt.modPow` has a known bug for 256-bit exponents. All modular exponentiation uses a safe square-and-multiply implementation in `FieldElement.pow()`. verification `examples/integration/test_modpow.dart`
 - **Okeya-Sakurai y-recovery** — `TwistedEdwards.scalarMul` uses the Okeya-Sakurai (2001) formula to recover the correct y-coordinate after Montgomery ladder x-only computation. This fixes an ambiguity where choosing "canonical even y" produces incorrect results for batch verification and general Edwards arithmetic.
 - **Parity bit fix** — `TwistedEdwards.decodePoint` uses `(bytes[32] & 1) == 1` instead of `bytes[32] == 1` to correctly handle all odd parity byte values.
 - **Little-endian encoding** — All byte serialization follows RFC 7748 convention.
