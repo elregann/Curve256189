@@ -179,6 +179,23 @@ Full verification: `examples/unit/fpow_curve256189.sage`
 ## Test Vectors
 
 ### EdDSA (Ed256189)
+
+**Important Note:**
+EdDSA in Curve256189 uses **scalar blinding for timing attack resistance**
+(see `montgomery.dart:blindScalar()`). This means:
+
+- **Public Keys** may differ even with identical seeds
+- **Signatures** may differ even with identical messages
+- **Both are cryptographically valid** and will verify successfully
+
+This is expected behavior and provides post-quantum hardening via the
+**FPOW layer** (see `fpow.dart` and README section "Research Journey").
+
+**Test Vector Example:**
+The following values represent one valid run. Your implementation may produce
+different but equally valid keys and signatures.
+
+
 ```
 Seed:       0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20
 Public Key: d6399e1969b4a67871928b7f3066eb2b8e119765c697317ea29688016404b9fe00
@@ -186,6 +203,13 @@ Message:    "Hello Curve256189!"
 Signature:  5a43c931eeb6329f00c27e3daeef2ce888746d81209881130db681f8cb161b960
             0919794e5439eb4be7263891d5abc75e766276b39eeb4758dbd6c49a485336405
 ```
+
+**Why This Design?**
+- Blinding prevents timing attacks on private key operations
+- FPOW adds quantum resistance layer (Grover resistance: 2¹²⁸)
+- See `examples/unit/test_blinding.dart` for verification
+
+---
 
 ### X256189 (ECDH + HKDF)
 ```
