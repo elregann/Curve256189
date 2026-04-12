@@ -1,10 +1,29 @@
 name: curve256189
+
 description: >
-  High-security elliptic curve cryptography (Curve256189) for Dart. 
-  Features SafeCurves compliance (11/11) and FPOW scalar hardening.
-version: 1.0.0
-repository: https://github.com/elregann/Curve256189
+  Curve256189: SafeCurves-compliant (11/11) Montgomery elliptic curve 
+  with novel FPOW post-quantum hardening layer. Formally verified via SageMath. 
+  Production-ready Dart cryptography library.
+
+version: 1.0.0-beta.1
+
 homepage: https://github.com/elregann/Curve256189
+repository: https://github.com/elregann/Curve256189
+documentation: https://github.com/elregann/Curve256189#readme
+
+license: MIT
+
+keywords:
+  - cryptography
+  - ecc
+  - elliptic-curve
+  - safecurves
+  - post-quantum
+  - fpow
+  - montgomery-curve
+  - eddsa
+  - ecdh
+  - edwards-curve
 
 topics:
   - cryptography

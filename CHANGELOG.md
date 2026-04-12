@@ -1,4 +1,4 @@
-## 1.0.0
+## 1.0.0-beta.1
 
 - Initial release of Curve256189.
 - Verified SafeCurves compliance (11/11 criteria).
