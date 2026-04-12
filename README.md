@@ -23,7 +23,7 @@ At this point both the curve and its quadratic twist satisfied the desired struc
 
 In retrospect, the process contains an interesting coincidence: the prime field offset (189), originally chosen without special significance, turned out to be the minimal valid value for (2²⁵⁶ - c), while the suitable Montgomery parameter appeared relatively close to the initial search region. These two results together define the parameters used by **Curve256189**.  
 
-`examples/unit/found.sage`
+`dev/unit/found.sage`
 
 ---
 
@@ -78,7 +78,7 @@ Curve256189 passes all 11 SafeCurves criteria — verified via SageMath:
 
 **Total: 11/11 Criteria met — SafeCurves compliant! ✅**
 
-Full verification: `examples/unit/safecurves_curve256189.sage`
+Full verification: `dev/unit/safecurves_curve256189.sage`
 
 ---
 
@@ -171,7 +171,7 @@ No known quantum algorithm efficiently solves step 2.
 - Secret rotation mechanism for forward secrecy
 - Standalone hardness assumption formalization
 
-Full verification: `examples/unit/fpow_curve256189.sage`
+Full verification: `dev/unit/fpow_curve256189.sage`
 
 > **Note:** FPOW is a novel construction not found in surveyed literature at time of writing. It is presented as a research contribution pending formal peer review. HFE is preserved in `lib/src/hfe.dart` for historical reference and to document the research journey that led to this discovery.
 
@@ -206,8 +206,8 @@ Signature:  5a43c931eeb6329f00c27e3daeef2ce888746d81209881130db681f8cb161b960
 
 **Why This Design?**
 - Blinding prevents timing attacks on private key operations
-- FPOW adds quantum resistance layer (Grover resistance: 2¹²⁸)
-- See `examples/unit/test_blinding.dart` for verification
+- FPOW adds quantum resistance layer (Grover resistance: 2¹²⁷)
+- See `dev/unit/test_blinding.dart` for verification
 
 ---
 
@@ -306,29 +306,29 @@ final plaintext = AESGCM.decrypt(
 
 ## Running Tests
 ```bash
-dart examples/unit/fpow_curve256189.sage
-dart examples/unit/safecurves_curve256189.sage
-dart examples/unit/test_aesgcm.dart
-dart examples/unit/test_audit.dart
-dart examples/unit/test_batch_verify.dart
-dart examples/unit/test_blinding.dart
-dart examples/unit/test_eddsa.dart
-dart examples/unit/test_edwards.dart
-dart examples/unit/test_elligator.dart
-dart examples/unit/test_field.dart
-dart examples/unit/test_fpow.dart
-dart examples/unit/test_hfe_security.dart
-dart examples/unit/test_hkdf.dart
-dart examples/unit/test_montgomery.dart
-dart examples/unit/test_validation.dart
-dart examples/unit/test_x256189.dart
+SageMath dev/unit/fpow_curve256189.sage
+SageMath dev/unit/safecurves_curve256189.sage
+dart dev/unit/test_aesgcm.dart
+dart dev/unit/test_audit.dart
+dart dev/unit/test_batch_verify.dart
+dart dev/unit/test_blinding.dart
+dart dev/unit/test_eddsa.dart
+dart dev/unit/test_edwards.dart
+dart dev/unit/test_elligator.dart
+dart dev/unit/test_field.dart
+dart dev/unit/test_fpow.dart
+dart dev/unit/test_hfe_security.dart
+dart dev/unit/test_hkdf.dart
+dart dev/unit/test_montgomery.dart
+dart dev/unit/test_validation.dart
+dart dev/unit/test_x256189.dart
 ```
 
 ---
 
 ## Implementation Notes
 
-- **No `BigInt.modPow`** — Dart's `BigInt.modPow` has a known bug for 256-bit exponents. All modular exponentiation uses a safe square-and-multiply implementation in `FieldElement.pow()`. verification `examples/integration/test_modpow.dart`
+- **No `BigInt.modPow`** — Dart's `BigInt.modPow` has a known bug for 256-bit exponents. All modular exponentiation uses a safe square-and-multiply implementation in `FieldElement.pow()`. verification `dev/integration/test_modpow.dart`
 - **Okeya-Sakurai y-recovery** — `TwistedEdwards.scalarMul` uses the Okeya-Sakurai (2001) formula to recover the correct y-coordinate after Montgomery ladder x-only computation. This fixes an ambiguity where choosing "canonical even y" produces incorrect results for batch verification and general Edwards arithmetic.
 - **Parity bit fix** — `TwistedEdwards.decodePoint` uses `(bytes[32] & 1) == 1` instead of `bytes[32] == 1` to correctly handle all odd parity byte values.
 - **Little-endian encoding** — All byte serialization follows RFC 7748 convention.
