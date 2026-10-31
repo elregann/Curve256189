@@ -1,3 +1,14 @@
+## 1.0.0-beta.3
+
+- Hardened the Montgomery ladder with an arithmetic conditional swap and a
+  fixed iteration count, removing bit-dependent branches from the scalar
+  multiplication loop.
+- Increased scalar blinding entropy from 32 to 64 bits and fixed the blinded
+  ladder length so its execution length does not depend on the scalar's bit
+  length.
+- Handle `[k+1]P = O` directly, keeping the secret-dependent double-and-add
+  fallback off the normal scalar multiplication path.
+
 ## 1.0.0-beta.2
 
 - **Breaking:** replaced the EdDSA implementation with **XEdDSA**, an x-only

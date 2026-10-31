@@ -69,5 +69,18 @@ void main() {
       Montgomery.pointsEqual(plainMixed, blindMixed));
 
   print('');
+  print('Test 6 - Large scalars beyond the curve order:');
+  final large = (BigInt.one << 300) + BigInt.from(12345);
+  final plainLarge = Montgomery.scalarMulFull(large, g);
+  final blindLarge = Montgomery.scalarMulFull(large, g, blind: true);
+  _check('blinded large-scalar multiplication matches',
+      Montgomery.pointsEqual(plainLarge, blindLarge));
+
+  final mixedLarge = Montgomery.scalarMulFull(large, mixed);
+  final mixedLargeBlind = Montgomery.scalarMulFull(large, mixed, blind: true);
+  _check('blinded large-scalar mixed-order multiplication matches',
+      Montgomery.pointsEqual(mixedLarge, mixedLargeBlind));
+
+  print('');
   print('=== Results: $_passed passed, $_failed failed ===');
 }

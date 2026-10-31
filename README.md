@@ -102,8 +102,8 @@ Full verification: `dev/unit/safecurves_curve256189.sage`
 
 ## Security Properties
 
-- **Montgomery ladder:** scalar multiplication executes a uniform sequence of operations per scalar bit.
-- **Scalar blinding:** randomized multiples of the full curve order `4n` via `Random.secure()`, which preserves the result for every curve point and reduces timing leakage.
+- **Montgomery ladder:** scalar multiplication runs a fixed number of iterations and uses an arithmetic conditional swap instead of branching on the secret bit.
+- **Scalar blinding:** randomized 64-bit multiples of the full curve order `4n` via `Random.secure()`, which preserves the result for every curve point and reduces timing leakage.
 - **Point validation:** rejects the point at infinity, out-of-range coordinates, off-curve points, and low-order points.
 - **Cofactor clearing:** h = 4, following the RFC 7748 convention.
 - **Strict signature verification:** canonical `s < n`, exact 64-byte signatures, canonical even-`y` decoding, and prime-order subgroup membership for both `R` and `P`.
@@ -258,7 +258,7 @@ dart dev/unit/test_x256189.dart
 ## Implementation Notes
 
 - **No `BigInt.modPow`:** Dart's `BigInt.modPow` has a known defect for 256-bit exponents. All modular exponentiation therefore uses a square-and-multiply implementation in `FieldElement.pow()`, verified by `dev/integration/test_modpow.dart`.
-- **Okeya-Sakurai y-recovery:** `Montgomery.scalarMulFull` uses the Okeya-Sakurai (2001) formula to recover a full point from the x-only ladder, with a double-and-add fallback if the formula degenerates. Scalar blinding adds a random multiple of `4n`, so it is correct for low-order and mixed-order points as well.
+- **Okeya-Sakurai y-recovery:** `Montgomery.scalarMulFull` uses the Okeya-Sakurai (2001) formula to recover a full point from the x-only ladder. The `[k+1]P = O` case is handled directly, and a double-and-add fallback covers any remaining degenerate input. Scalar blinding adds a random 64-bit multiple of `4n`, so it is correct for low-order and mixed-order points as well.
 - **x-only signatures:** XEdDSA avoids Edwards addition entirely. Signing and verification canonicalise `P` and `R` to the even-`y` representative and check the exact full-point equation `[s]G == R + [h]P`, so variants such as `(x(R), n - s)` or a sign-flipped `R` cannot be accepted.
 - **Strict validation:** signatures must be exactly 64 bytes, `s < n`, and both `R` and `P` must decode to canonical even-`y` points in the prime-order subgroup. Low-order and mixed-order public keys are rejected.
 - **Parity bit handling:** `TwistedEdwards.decodePoint` tests `(bytes[32] & 1) == 1` rather than `bytes[32] == 1`, so that all odd parity byte values are decoded correctly.

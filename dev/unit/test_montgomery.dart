@@ -64,6 +64,12 @@ void main() {
       Montgomery.pointsEqual(negG, Montgomery.negate(g)));
 
   _check('n * G is infinity', Montgomery.scalarMulFull(n, g).isInfinity);
+  _check(
+      '(n - 1) * G == -G',
+      Montgomery.pointsEqual(
+          Montgomery.scalarMulFull(n - BigInt.one, g), negG));
+  _check('(n + 1) * G == G',
+      Montgomery.pointsEqual(Montgomery.scalarMulFull(n + BigInt.one, g), g));
 
   print('');
   print('Test 3 - Identity handling:');

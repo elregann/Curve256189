@@ -118,6 +118,27 @@ class Montgomery {
     return k + r * _curveOrder;
   }
 
+  // Blinding entropy and fixed ladder bounds.
+  //
+  // A blinded scalar is k + r*(4n) with a 64-bit r, so it fits in
+  // _blindedLadderBits. The ladder always runs that many iterations for
+  // blinded scalars, which keeps its execution length independent of the
+  // secret scalar. Unblinded calls use the fixed curve-order length.
+  static const int _blindingBits = 64;
+  static final int _ladderBits = _curveOrder.bitLength;
+  static final int _blindedLadderBits =
+      _curveOrder.bitLength + _blindingBits + 1;
+
+  // Uniform non-zero 64-bit blinding scalar.
+  static BigInt _randomBlind() {
+    final rng = Random.secure();
+    BigInt r = BigInt.zero;
+    for (int i = 0; i < _blindingBits ~/ 32; i++) {
+      r = (r << 32) | BigInt.from(rng.nextInt(0x100000000));
+    }
+    return r == BigInt.zero ? BigInt.one : r;
+  }
+
   // Affine point addition
   static MontgomeryPoint add(MontgomeryPoint p, MontgomeryPoint q) {
     if (p.isInfinity) return q;
@@ -227,31 +248,45 @@ class Montgomery {
   }
 
   // Montgomery ladder core.
+  //
+  // The caller supplies a fixed iteration count. The update step uses an
+  // arithmetic conditional swap instead of branching on the secret bit, and
+  // both cases always perform the same two field operations.
   // Returns projective [X(kP), Z(kP), X((k+1)P), Z((k+1)P)].
-  static List<BigInt> _ladder(BigInt k, BigInt xP) {
+  static List<BigInt> _ladder(BigInt k, BigInt xP, int bitLength) {
     BigInt x0 = BigInt.one;
     BigInt z0 = BigInt.zero;
     BigInt x1 = xP;
     BigInt z1 = BigInt.one;
 
-    final int bitLen = k.bitLength;
-    for (int i = bitLen - 1; i >= 0; i--) {
-      final bit = (k >> i) & BigInt.one;
-      if (bit == BigInt.zero) {
-        final xAdd = _xADD(x0, z0, x1, z1, xP);
-        final xDbl = _xDBL(x0, z0);
-        x1 = xAdd[0];
-        z1 = xAdd[1];
-        x0 = xDbl[0];
-        z0 = xDbl[1];
-      } else {
-        final xAdd = _xADD(x0, z0, x1, z1, xP);
-        final xDbl = _xDBL(x1, z1);
-        x0 = xAdd[0];
-        z0 = xAdd[1];
-        x1 = xDbl[0];
-        z1 = xDbl[1];
-      }
+    // Fall back to a longer loop only for out-of-contract scalars. Blinded
+    // scalars are constructed to fit within bitLength.
+    final int bits = k.bitLength > bitLength ? k.bitLength : bitLength;
+    for (int i = bits - 1; i >= 0; i--) {
+      // mask is 0 or -1, so the swap is data-independent at the branch level.
+      final mask = -((k >> i) & BigInt.one);
+
+      var dx = (x0 ^ x1) & mask;
+      var dz = (z0 ^ z1) & mask;
+      x0 ^= dx;
+      x1 ^= dx;
+      z0 ^= dz;
+      z1 ^= dz;
+
+      final xAdd = _xADD(x0, z0, x1, z1, xP);
+      final xDbl = _xDBL(x0, z0);
+
+      x1 = xAdd[0];
+      z1 = xAdd[1];
+      x0 = xDbl[0];
+      z0 = xDbl[1];
+
+      dx = (x0 ^ x1) & mask;
+      dz = (z0 ^ z1) & mask;
+      x0 ^= dx;
+      x1 ^= dx;
+      z0 ^= dz;
+      z1 ^= dz;
     }
 
     return [x0, z0, x1, z1];
@@ -269,11 +304,12 @@ class Montgomery {
     }
     if (xP < BigInt.zero || xP >= p) return null;
 
-    final kBlind = blind
-        ? blindScalar(k, BigInt.from(Random.secure().nextInt(0xFFFFFFFF)))
-        : k;
-
-    final result = _ladder(kBlind, xP);
+    final kBlind = blind ? blindScalar(k, _randomBlind()) : k;
+    final result = _ladder(
+      kBlind,
+      xP,
+      blind ? _blindedLadderBits : _ladderBits,
+    );
     final x = result[0];
     final z = result[1];
 
@@ -297,11 +333,23 @@ class Montgomery {
     }
     if (xP < BigInt.zero || xP >= p) return [null, null];
 
-    final kBlind = blind
-        ? blindScalar(k, BigInt.from(Random.secure().nextInt(0xFFFFFFFF)))
-        : k;
+    final kBlind = blind ? blindScalar(k, _randomBlind()) : k;
+    return _ladderXWithNextBits(
+      kBlind,
+      xP,
+      blind ? _blindedLadderBits : _ladderBits,
+    );
+  }
 
-    final result = _ladder(kBlind, xP);
+  // Shared ladder body with an explicit fixed iteration count.
+  static List<BigInt?> _ladderXWithNextBits(
+    BigInt k,
+    BigInt xP,
+    int bitLength,
+  ) {
+    if (xP < BigInt.zero || xP >= p) return [null, null];
+
+    final result = _ladder(k, xP, bitLength);
     final x0 = result[0];
     final z0 = result[1];
     final x1 = result[2];
@@ -358,35 +406,41 @@ class Montgomery {
     }
 
     if (blind) {
-      k += BigInt.from(Random.secure().nextInt(0xFFFFFFFF)) * _curveOrder;
+      k += _randomBlind() * _curveOrder;
     }
 
-    final pair = ladderXWithNext(k, p.x);
+    final pair = _ladderXWithNextBits(
+      k,
+      p.x,
+      blind ? _blindedLadderBits : _ladderBits,
+    );
     final xR = pair[0];
     final xNext = pair[1];
 
     if (xR == null) return MontgomeryPoint.infinity();
 
+    // [k+1]P = O implies [k]P = -P. Handling this directly keeps the
+    // secret-dependent double-and-add fallback off the normal path.
+    if (xNext == null) return negate(p);
+
     final rhs = curveRhs(xR);
 
-    if (xNext != null) {
-      final term1 = FieldElement.add(FieldElement.mul(p.x, xR), BigInt.one);
-      final term2 = FieldElement.add(
-        FieldElement.add(p.x, xR),
-        FieldElement.mul(BigInt.two, A),
-      );
-      final prod = FieldElement.mul(term1, term2);
-      final term3 = FieldElement.mul(BigInt.two, A);
-      final diff = FieldElement.sub(p.x, xR);
-      final diff2 = FieldElement.mul(diff, diff);
-      final term4 = FieldElement.mul(diff2, xNext);
-      final numer = FieldElement.sub(FieldElement.sub(prod, term3), term4);
-      final denom = FieldElement.mul(BigInt.two, p.y);
-      final yR = FieldElement.mul(numer, FieldElement.inv(denom));
+    final term1 = FieldElement.add(FieldElement.mul(p.x, xR), BigInt.one);
+    final term2 = FieldElement.add(
+      FieldElement.add(p.x, xR),
+      FieldElement.mul(BigInt.two, A),
+    );
+    final prod = FieldElement.mul(term1, term2);
+    final term3 = FieldElement.mul(BigInt.two, A);
+    final diff = FieldElement.sub(p.x, xR);
+    final diff2 = FieldElement.mul(diff, diff);
+    final term4 = FieldElement.mul(diff2, xNext);
+    final numer = FieldElement.sub(FieldElement.sub(prod, term3), term4);
+    final denom = FieldElement.mul(BigInt.two, p.y);
+    final yR = FieldElement.mul(numer, FieldElement.inv(denom));
 
-      if (FieldElement.mul(yR, yR) == rhs) {
-        return MontgomeryPoint(xR, yR);
-      }
+    if (FieldElement.mul(yR, yR) == rhs) {
+      return MontgomeryPoint(xR, yR);
     }
 
     return _doubleAndAdd(k, p);
