@@ -12,7 +12,8 @@ void main() {
   // Test case 2: Validate scalar multiplication correctness using Montgomery x-coordinate.
   final s3G = TwistedEdwards.scalarMul(BigInt.from(3), G);
   final s4G = TwistedEdwards.scalarMul(BigInt.from(4), G);
-  final a4G = Montgomery.add(Montgomery.double_(MontgomeryPoint.G), Montgomery.double_(MontgomeryPoint.G));
+  final a4G = Montgomery.add(Montgomery.double_(MontgomeryPoint.G),
+      Montgomery.double_(MontgomeryPoint.G));
 
   print('3G on curve? ${TwistedEdwards.isOnCurve(s3G)}');
   print('4G on curve? ${TwistedEdwards.isOnCurve(s4G)}');

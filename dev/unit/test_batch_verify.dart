@@ -1,98 +1,166 @@
 // test_batch_verify.dart
 
-// Batch verification of Ed256189 signatures
-// Based on the batch verification technique by Daniel J. Bernstein (2012)
-// Formalized for Edwards curves by Henry de Valence et al. (2017)
-// Adapted for Curve256189 by Ismael Urzaiz Aranda (2026)
+// Batch verification of XEdDSA signatures on Curve256189.
 import 'dart:typed_data';
 import 'package:curve256189/curve256189.dart';
 
+int _passed = 0;
+int _failed = 0;
+
+void _check(String name, bool result) {
+  print('  ${result ? "PASS" : "FAIL"}: $name');
+  if (result) {
+    _passed++;
+  } else {
+    _failed++;
+  }
+}
+
+SignatureBundle _bundle(int seedOffset, String message) {
+  final seed =
+      Uint8List.fromList(List.generate(32, (i) => (seedOffset + i) & 0xff));
+  final kp = XEdDSA.generateKeyPair(seed);
+  final msg = Uint8List.fromList(message.codeUnits);
+  final sig = XEdDSA.sign(msg, kp['privateKey']!);
+  return SignatureBundle(
+    message: msg,
+    signature: sig,
+    publicKey: kp['publicKey']!,
+  );
+}
+
 void main() {
-  print('=== Test: Batch Verification Ed256189 ===');
-
-  // Test case 1: Single signature verification (falls back to individual verify)
+  print('=== Test: Batch Verification XEdDSA ===');
   print('');
+
+  final b1 = _bundle(1, 'Hello Curve256189!');
+  final b2 = _bundle(33, 'Batch verification rocks!');
+
   print('Test 1 - Single signature fallback:');
-  final seed1 = Uint8List.fromList(List.generate(32, (i) => i + 1));
-  final kp1 = EdDSA.generateKeyPair(seed1);
-  final msg1 = Uint8List.fromList('Hello Curve256189!'.codeUnits);
-  final sig1 = EdDSA.sign(msg1, kp1['privateKey']!);
-  final result1 = BatchVerify.verify([
-    SignatureBundle(message: msg1, signature: sig1, publicKey: kp1['publicKey']!),
-  ]);
-  print('  single valid? $result1');
+  _check('single valid signature accepted', BatchVerify.verify([b1]));
+  _check('empty batch accepted', BatchVerify.verify([]));
 
-  // Test case 2: Batch verification of 2 valid signatures
   print('');
-  print('Test 2 - Batch verify 2 signatures:');
-  final seed2 = Uint8List.fromList(List.generate(32, (i) => i + 33));
-  final kp2 = EdDSA.generateKeyPair(seed2);
-  final msg2 = Uint8List.fromList('Batch verification rocks!'.codeUnits);
-  final sig2 = EdDSA.sign(msg2, kp2['privateKey']!);
-  final result2 = BatchVerify.verify([
-    SignatureBundle(message: msg1, signature: sig1, publicKey: kp1['publicKey']!),
-    SignatureBundle(message: msg2, signature: sig2, publicKey: kp2['publicKey']!),
-  ]);
-  print('  batch 2 valid? $result2');
+  print('Test 2 - Valid batches:');
+  _check('2-signature batch accepted', BatchVerify.verify([b1, b2]));
 
-  // Test case 3: Batch verification of 5 valid signatures
-  print('');
-  print('Test 3 - Batch verify 5 signatures:');
-  final bundles5 = List.generate(5, (i) {
-    final seed = Uint8List.fromList(List.generate(32, (j) => i * 32 + j + 1));
-    final kp = EdDSA.generateKeyPair(seed);
-    final msg = Uint8List.fromList('Message $i'.codeUnits);
-    final sig = EdDSA.sign(msg, kp['privateKey']!);
-    return SignatureBundle(message: msg, signature: sig, publicKey: kp['publicKey']!);
-  });
-  final result3 = BatchVerify.verify(bundles5);
-  print('  batch 5 valid? $result3');
+  final batches = List.generate(
+    5,
+    (i) => _bundle(i * 32 + 1, 'Message $i'),
+  );
+  _check('5-signature batch accepted', BatchVerify.verify(batches));
 
-  // Test case 4: Tampered signature is rejected in batch verification
   print('');
-  print('Test 4 - Tampered signature rejected in batch:');
-  final tamperedSig = Uint8List.fromList(sig1);
-  tamperedSig[40] ^= 0x01;
-  final result4 = BatchVerify.verify([
-    SignatureBundle(message: msg1, signature: tamperedSig, publicKey: kp1['publicKey']!),
-    SignatureBundle(message: msg2, signature: sig2, publicKey: kp2['publicKey']!),
-  ]);
-  print('  tampered rejected? ${result4 == false}');
+  print('Test 3 - Tampering is rejected:');
+  final tampered = Uint8List.fromList(b1.signature);
+  tampered[40] ^= 0x01;
+  _check(
+    'tampered signature rejected',
+    !BatchVerify.verify([
+      SignatureBundle(
+          message: b1.message, signature: tampered, publicKey: b1.publicKey),
+      b2,
+    ]),
+  );
 
-  // Test case 5: Wrong message is rejected in batch verification
-  print('');
-  print('Test 5 - Wrong message rejected in batch:');
-  final wrongMsg = Uint8List.fromList('Wrong message!'.codeUnits);
-  final result5 = BatchVerify.verify([
-    SignatureBundle(message: wrongMsg, signature: sig1, publicKey: kp1['publicKey']!),
-    SignatureBundle(message: msg2, signature: sig2, publicKey: kp2['publicKey']!),
-  ]);
-  print('  wrong message rejected? ${result5 == false}');
+  _check(
+    'wrong message rejected',
+    !BatchVerify.verify([
+      SignatureBundle(
+          message: Uint8List.fromList('Wrong message!'.codeUnits),
+          signature: b1.signature,
+          publicKey: b1.publicKey),
+      b2,
+    ]),
+  );
 
-  // Test case 6: Batch verification of 10 signatures — throughput demonstration
+  final n = Curve256189Params.n;
+  final xR = Uint8List.fromList(b1.signature.sublist(0, 32));
+  final s =
+      XEdDSA.decodeLittleEndian(Uint8List.fromList(b1.signature.sublist(32)));
+
+  final nMinusS =
+      Uint8List.fromList([...xR, ...XEdDSA.encodeScalar((n - s) % n)]);
+  _check(
+    '(x(R), n - s) rejected in batch',
+    !BatchVerify.verify([
+      SignatureBundle(
+          message: b1.message, signature: nMinusS, publicKey: b1.publicKey),
+      b2,
+    ]),
+  );
+
+  var sPlusN = s + n;
+  final sPlusNBytes = Uint8List(32);
+  for (int i = 0; i < 32; i++) {
+    sPlusNBytes[i] = (sPlusN & BigInt.from(0xff)).toInt();
+    sPlusN >>= 8;
+  }
+  final nonCanonicalS = Uint8List.fromList([...xR, ...sPlusNBytes]);
+  _check(
+    '(x(R), s + n) rejected in batch',
+    !BatchVerify.verify([
+      SignatureBundle(
+          message: b1.message,
+          signature: nonCanonicalS,
+          publicKey: b1.publicKey),
+      b2,
+    ]),
+  );
+
   print('');
-  print('Test 6 - Batch verify 10 signatures (throughput demo):');
-  final bundles10 = List.generate(10, (i) {
-    final seed = Uint8List.fromList(List.generate(32, (j) => i * 7 + j + 1));
-    final kp = EdDSA.generateKeyPair(seed);
-    final msg = Uint8List.fromList('Command $i — fire!'.codeUnits);
-    final sig = EdDSA.sign(msg, kp['privateKey']!);
-    return SignatureBundle(message: msg, signature: sig, publicKey: kp['publicKey']!);
-  });
+  print('Test 4 - Invalid encodings:');
+  _check(
+    'short signature rejected',
+    !BatchVerify.verify([
+      SignatureBundle(
+          message: b1.message,
+          signature: b1.signature.sublist(0, 63),
+          publicKey: b1.publicKey),
+      b2,
+    ]),
+  );
+  _check(
+    'long signature rejected',
+    !BatchVerify.verify([
+      SignatureBundle(
+          message: b1.message,
+          signature: Uint8List.fromList([...b1.signature, 0]),
+          publicKey: b1.publicKey),
+      b2,
+    ]),
+  );
+  _check(
+    'invalid public key rejected',
+    !BatchVerify.verify([
+      SignatureBundle(
+          message: b1.message,
+          signature: b1.signature,
+          publicKey: Uint8List(32)),
+      b2,
+    ]),
+  );
+
+  print('');
+  print('Test 5 - Throughput (10 signatures):');
+  final ten =
+      List.generate(10, (i) => _bundle(i * 7 + 1, 'Command $i — fire!'));
 
   final stopwatch = Stopwatch()..start();
-  final result6batch = BatchVerify.verify(bundles10);
+  final batchResult = BatchVerify.verify(ten);
   final batchTime = stopwatch.elapsedMilliseconds;
 
   stopwatch.reset();
   stopwatch.start();
-  final result6individual = bundles10.every((b) =>
-      EdDSA.verify(b.message, b.signature, b.publicKey)
-  );
+  final individualResult =
+      ten.every((b) => XEdDSA.verify(b.message, b.signature, b.publicKey));
   final individualTime = stopwatch.elapsedMilliseconds;
 
-  print('  individual valid? $result6individual');
-  print('  batch valid? $result6batch');
-  print('  individual time: ${individualTime} ms');
-  print('  batch time:      ${batchTime} ms');
+  _check('individual verification agrees', individualResult);
+  _check('batch verification agrees', batchResult);
+  print('  individual time: $individualTime ms');
+  print('  batch time:      $batchTime ms');
+
+  print('');
+  print('=== Results: $_passed passed, $_failed failed ===');
 }

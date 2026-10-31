@@ -6,11 +6,13 @@ import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'montgomery.dart';
 import 'params.dart';
-import 'field.dart';
 
 class X256189 {
   static final BigInt p = Curve256189Params.p;
   static final BigInt n = Curve256189Params.n;
+
+  static const int _seedLength = 32;
+  static const int _publicKeyLength = 32;
 
   // Little-endian encoding per RFC 7748 (X25519 convention)
   static Uint8List _bigIntToBytes(BigInt value) {
@@ -32,10 +34,16 @@ class X256189 {
     return result;
   }
 
-  // Generate X256189 key pair from 32-byte seed
-  // Returns {privateKey: 32 bytes, publicKey: 32 bytes}
-  static Map<String, Uint8List> generateKeyPair(Uint8List seed) {
-    // Derive private scalar via SHA-512 + clamp
+  // Derive the cofactor-cleared private scalar from a 32-byte seed.
+  static BigInt _privateScalar(Uint8List seed) {
+    if (seed.length != _seedLength) {
+      throw ArgumentError.value(
+        seed.length,
+        'seed',
+        'X256189 requires exactly $_seedLength bytes',
+      );
+    }
+
     final h = sha512.convert(seed).bytes;
     final skBytes = Uint8List.fromList(h.sublist(0, 32));
     skBytes[0] &= 252;
@@ -44,60 +52,47 @@ class X256189 {
 
     final sk = _bytesToBigInt(skBytes) % n;
 
-    // Cofactor clearing per RFC 7748: multiply scalar by h=4
-    // Ensures shared secret lies in prime-order subgroup
-    final skCleared = sk * BigInt.from(4);
+    // Cofactor clearing per RFC 7748: multiply scalar by h=4.
+    // Ensures the shared secret lies in the prime-order subgroup.
+    return (sk * BigInt.from(4)) % n;
+  }
 
-    // Public key: skCleared * G (x-coordinate only)
+  // Generate X256189 key pair from 32-byte seed
+  // Returns {privateKey: 32 bytes, publicKey: 32 bytes}
+  static Map<String, Uint8List> generateKeyPair(Uint8List seed) {
+    final skCleared = _privateScalar(seed);
+
     final pkX = Montgomery.ladderXOnly(skCleared, MontgomeryPoint.G.x);
-    final pkBytes = _bigIntToBytes(pkX);
+    if (pkX == null) {
+      throw StateError('derived the point at infinity as public key');
+    }
 
     return {
-      'privateKey': seed,
-      'publicKey': pkBytes,
+      'privateKey': Uint8List.fromList(seed),
+      'publicKey': _bigIntToBytes(pkX),
     };
   }
 
-  // Compute ECDH shared secret
-  // Returns 32-byte shared secret x-coordinate
+  // Compute ECDH shared secret.
+  // Returns a 32-byte shared secret x-coordinate, or null if the public key
+  // is malformed, off-curve, low-order, or not in the prime-order subgroup.
   static Uint8List? computeSharedSecret(
       Uint8List privateKey, Uint8List publicKeyBytes) {
-    // Derive private scalar
-    final h = sha512.convert(privateKey).bytes;
-    final skBytes = Uint8List.fromList(h.sublist(0, 32));
-    skBytes[0] &= 252;
-    skBytes[31] &= 127;
-    skBytes[31] |= 64;
+    if (publicKeyBytes.length != _publicKeyLength) return null;
 
-    final sk = _bytesToBigInt(skBytes) % n;
+    final skCleared = _privateScalar(privateKey);
 
-    // Cofactor clearing per RFC 7748: multiply scalar by h=4
-    // Ensures shared secret lies in prime-order subgroup
-    final skCleared = sk * BigInt.from(4);
-
-    // Decode and validate public key
     final pkX = _bytesToBigInt(publicKeyBytes);
-    if (pkX == BigInt.zero || pkX >= p) return null;
+    if (pkX <= BigInt.zero || pkX >= p) return null;
 
-    // Recover y for validation
-    final x2 = FieldElement.mul(pkX, pkX);
-    final x3 = FieldElement.mul(pkX, x2);
-    final rhs = FieldElement.add(
-      FieldElement.add(x3, FieldElement.mul(Curve256189Params.A, x2)),
-      pkX,
-    );
-    final exp = (p + BigInt.one) >> 2;
-    final y = FieldElement.pow(rhs, exp);
-    if (FieldElement.mul(y, y) != rhs) return null;
+    // Decode as the canonical even-y point and require prime-order subgroup
+    // membership. This rejects low-order and mixed-order public keys.
+    final pkPoint = Montgomery.pointFromX(pkX, evenY: true);
+    if (pkPoint == null) return null;
+    if (!Montgomery.isInPrimeOrderSubgroup(pkPoint)) return null;
 
-    // Validate public key point
-    final pkPoint = MontgomeryPoint(pkX, y);
-    if (!Montgomery.isValidPoint(pkPoint)) return null;
-
-    // Compute shared secret: skCleared * pk (x-coordinate only)
-    // skCleared = h * sk ensures result is in prime-order subgroup
     final sharedX = Montgomery.ladderXOnly(skCleared, pkX);
-    if (sharedX == BigInt.zero) return null;
+    if (sharedX == null || sharedX == BigInt.zero) return null;
 
     return _bigIntToBytes(sharedX);
   }

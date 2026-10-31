@@ -39,8 +39,7 @@ class HKDF {
     required Uint8List info,
     int length = 32,
   }) {
-    final effectiveSalt = salt ??
-        Uint8List.fromList('Curve256189'.codeUnits);
+    final effectiveSalt = salt ?? Uint8List.fromList('Curve256189'.codeUnits);
     final prk = extract(effectiveSalt, ikm);
     return expand(prk, info, length);
   }

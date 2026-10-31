@@ -22,6 +22,9 @@ class Curve256189SecurityTest {
     return bytes;
   }
 
+  static final EdwardsPoint G =
+      TwistedEdwards.fromMontgomery(MontgomeryPoint.G);
+
   static bool _pointEqual(EdwardsPoint a, EdwardsPoint b) {
     return a.x == b.x && a.y == b.y;
   }
@@ -36,7 +39,7 @@ class Curve256189SecurityTest {
     int totalDecodes = 0;
 
     for (int i = 0; i < 100000; i++) {
-      final bytes = _randomBytes(33);  // 33-byte compressed Edwards point
+      final bytes = _randomBytes(33); // 33-byte compressed Edwards point
       final P = TwistedEdwards.decodePoint(bytes);
 
       if (P != null) {
@@ -52,7 +55,8 @@ class Curve256189SecurityTest {
     // Probability is approximately (number of valid points) / 2^264, which is negligible.
     // Statistical check
     if (totalDecodes > 50000) {
-      print('NOTE: $totalDecodes random inputs decoded (~50% - expected with Elligator 2)');
+      print(
+          'NOTE: $totalDecodes random inputs decoded (~50% - expected with Elligator 2)');
     } else if (totalDecodes > 0) {
       print('WARNING: $totalDecodes random inputs decoded (expected ~50000)');
     }
@@ -61,7 +65,7 @@ class Curve256189SecurityTest {
   }
 
   // Section 2: Signature Non-Malleability Test
-  // Ensures EdDSA signatures are not malleable:
+  // Ensures XEdDSA signatures are not malleable:
   // - Modified R component rejected
   // - Modified s component rejected
   // - Non-canonical s (s >= n) rejected
@@ -69,41 +73,38 @@ class Curve256189SecurityTest {
     print('Running signature non-malleability test...');
 
     final seed = _randomBytes(32);
-    final keypair = EdDSA.generateKeyPair(seed);
+    final keypair = XEdDSA.generateKeyPair(seed);
     final message = _randomBytes(32);
-    final signature = EdDSA.sign(message, keypair['privateKey']!);
+    final signature = XEdDSA.sign(message, keypair['privateKey']!);
     final n = Curve256189Params.n;
 
     // Test 1: Modified R component (first 32 bytes)
     final modifiedR = Uint8List.fromList(signature);
-    modifiedR[10] ^= 0x01;  // Flip one bit in R
+    modifiedR[10] ^= 0x01; // Flip one bit in R
     _checkMalleability('Modified R component',
-        !EdDSA.verify(message, modifiedR, keypair['publicKey']!));
+        !XEdDSA.verify(message, modifiedR, keypair['publicKey']!));
 
     // Test 2: Modified s component (last 32 bytes)
     final modifiedS = Uint8List.fromList(signature);
-    modifiedS[40] ^= 0x01;  // Flip one bit in s
+    modifiedS[40] ^= 0x01; // Flip one bit in s
     _checkMalleability('Modified s component',
-        !EdDSA.verify(message, modifiedS, keypair['publicKey']!));
+        !XEdDSA.verify(message, modifiedS, keypair['publicKey']!));
 
     // Test 3: Non-canonical s (s >= n)
-    // Extract s from signature (bytes 32 to 63)
+    // Extract s from signature (bytes 32 to 63, little-endian)
     final sBytes = signature.sublist(32, 64);
-    var s = BigInt.zero;
-    for (int i = 0; i < 32; i++) {
-      s = (s << 8) | BigInt.from(sBytes[i]);
-    }
+    final s = XEdDSA.decodeLittleEndian(Uint8List.fromList(sBytes));
 
     if (s >= n) {
       // Signature is already non-canonical and should be rejected
       _checkMalleability('Non-canonical s (original)',
-          !EdDSA.verify(message, signature, keypair['publicKey']!));
+          !XEdDSA.verify(message, signature, keypair['publicKey']!));
     } else {
       // Create a non-canonical s by adding n
       final nonCanonicalS = s + n;
       final nonCanonicalBytes = Uint8List(32);
       var temp = nonCanonicalS;
-      for (int i = 31; i >= 0; i--) {
+      for (int i = 0; i < 32; i++) {
         nonCanonicalBytes[i] = (temp & BigInt.from(0xff)).toInt();
         temp = temp >> 8;
       }
@@ -113,7 +114,7 @@ class Curve256189SecurityTest {
         ..setRange(32, 64, nonCanonicalBytes);
 
       _checkMalleability('Non-canonical s (s + n)',
-          !EdDSA.verify(message, nonCanonicalSig, keypair['publicKey']!));
+          !XEdDSA.verify(message, nonCanonicalSig, keypair['publicKey']!));
     }
 
     print('PASS: No malleable signatures accepted');
@@ -140,7 +141,7 @@ class Curve256189SecurityTest {
       }
       k = k % Curve256189Params.n;
 
-      final P = TwistedEdwards.scalarMul(k, EdDSA.G);
+      final P = TwistedEdwards.scalarMul(k, G);
       final encoded = TwistedEdwards.encodePoint(P);
       final decoded = TwistedEdwards.decodePoint(encoded);
 

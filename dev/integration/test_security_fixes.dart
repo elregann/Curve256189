@@ -57,11 +57,14 @@ void _testDecodePointAcceptance() {
   print('  Accepted: $accepted (${rate.toStringAsFixed(2)}%)');
 
   if (rate > 55) {
-    print('  WARNING: Acceptance rate exceeds 55% (expected approximately 50%).');
+    print(
+        '  WARNING: Acceptance rate exceeds 55% (expected approximately 50%).');
   } else if (rate < 45) {
-    print('  WARNING: Acceptance rate is below 45% (expected approximately 50%).');
+    print(
+        '  WARNING: Acceptance rate is below 45% (expected approximately 50%).');
   } else {
-    print('  GOOD: Acceptance rate is within the expected range (approximately 50%).');
+    print(
+        '  GOOD: Acceptance rate is within the expected range (approximately 50%).');
   }
   print('');
 }
@@ -157,9 +160,7 @@ void _testEndToEndX256189() {
 
   // Test with a valid public key
   final validSecret = X256189.computeSharedSecret(
-      keypair['privateKey']!,
-      keypair['publicKey']!
-  );
+      keypair['privateKey']!, keypair['publicKey']!);
   print('  Valid public key: ${validSecret != null ? "accepted" : "rejected"}');
 
   // Test with a twist point (invalid public key)
@@ -189,10 +190,8 @@ void _testEndToEndX256189() {
       temp = temp >> 8;
     }
 
-    final twistSecret = X256189.computeSharedSecret(
-        keypair['privateKey']!,
-        twistBytes
-    );
+    final twistSecret =
+        X256189.computeSharedSecret(keypair['privateKey']!, twistBytes);
     print('  Twist point: ${twistSecret == null ? "rejected" : "accepted"}');
   } else {
     print('  Note: Could not find a twist point for testing.');

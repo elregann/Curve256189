@@ -2,52 +2,74 @@
 
 import 'package:curve256189/curve256189.dart';
 
+int _passed = 0;
+int _failed = 0;
+
+void _check(String name, bool result) {
+  print('  ${result ? "PASS" : "FAIL"}: $name');
+  if (result) {
+    _passed++;
+  } else {
+    _failed++;
+  }
+}
+
 void main() {
   print('=== Test: Point Validation Curve256189 ===');
+  print('');
 
   final p = Curve256189Params.p;
-  final A = Curve256189Params.A;
 
-  // Test case 1: Base point G should be valid
-  print('');
-  print('Test 1 - Is the base point G valid?');
-  print('  ${Montgomery.isValidPoint(MontgomeryPoint.G)}');
+  print('Test 1 - Base point:');
+  _check('G is valid', Montgomery.isValidPoint(MontgomeryPoint.G));
+  _check('G is in the prime-order subgroup',
+      Montgomery.isInPrimeOrderSubgroup(MontgomeryPoint.G));
 
-  // Test case 2: Point at infinity should be invalid
   print('');
-  print('Test 2 - Is the point at infinity invalid?');
-  print('  ${!Montgomery.isValidPoint(MontgomeryPoint.infinity())}');
+  print('Test 2 - Infinity:');
+  _check('infinity is invalid',
+      !Montgomery.isValidPoint(MontgomeryPoint.infinity()));
 
-  // Test case 3: Order-2 point (0, 0) should be invalid
   print('');
-  print('Test 3 - Is the order-2 point (0, 0) invalid?');
-  print('  ${!Montgomery.isValidPoint(MontgomeryPoint(BigInt.zero, BigInt.zero))}');
-
-  // Test case 4: Order-4 point (p-1, y) should be invalid
-  // Compute x = p - 1, then recover y from the curve equation
-  print('');
-  print('Test 4 - Is the order-4 point (p-1, y) invalid?');
+  print('Test 3 - Low-order points:');
+  _check('order-2 point (0, 0) is invalid',
+      !Montgomery.isValidPoint(MontgomeryPoint(BigInt.zero, BigInt.zero)));
   final x4 = p - BigInt.one;
-  final x2 = FieldElement.mul(x4, x4);
-  final x3 = FieldElement.mul(x4, x2);
-  final rhs = FieldElement.add(
-    FieldElement.add(x3, FieldElement.mul(A, x2)),
-    x4,
+  final y4 = Montgomery.yFromX(x4)!;
+  _check('order-4 point (p-1, y) is invalid',
+      !Montgomery.isValidPoint(MontgomeryPoint(x4, y4)));
+  _check('order-4 point is not in the prime-order subgroup',
+      !Montgomery.isInPrimeOrderSubgroup(MontgomeryPoint(x4, y4)));
+
+  print('');
+  print('Test 4 - Mixed-order point:');
+  final mixed = Montgomery.add(
+    MontgomeryPoint.G,
+    MontgomeryPoint(BigInt.zero, BigInt.zero),
   );
-  final exp = (p + BigInt.one) >> 2;
-  final y4 = FieldElement.pow(rhs, exp);
-  final order4Point = MontgomeryPoint(x4, y4);
-  print('  on curve? ${Montgomery.isOnCurve(order4Point)}');
-  print('  isValidPoint? ${!Montgomery.isValidPoint(order4Point)}');
+  _check('G + (0,0) is on the curve',
+      Montgomery.isOnCurve(mixed) && mixed.x != BigInt.zero);
+  _check('mixed-order point is not in the prime-order subgroup',
+      !Montgomery.isInPrimeOrderSubgroup(mixed));
+  _check('mixed-order x is not a valid public key',
+      !Montgomery.isValidPublicKeyX(mixed.x));
 
-  // Test case 5: 2G should be valid
   print('');
-  print('Test 5 - Is 2G valid?');
-  final twoG = Montgomery.scalarMul(BigInt.two, MontgomeryPoint.G);
-  print('  ${Montgomery.isValidPoint(twoG)}');
+  print('Test 5 - Ordinary points:');
+  final twoG = Montgomery.scalarMulFull(BigInt.two, MontgomeryPoint.G);
+  _check('2G is valid', Montgomery.isValidPoint(twoG));
+  _check('2G is in the prime-order subgroup',
+      Montgomery.isInPrimeOrderSubgroup(twoG));
 
-  // Test case 6: Points with x >= p should be invalid
   print('');
-  print('Test 6 - Is a point with x >= p invalid?');
-  print('  ${!Montgomery.isValidPoint(MontgomeryPoint(p, BigInt.one))}');
+  print('Test 6 - Out-of-range coordinates:');
+  _check('x = p is invalid',
+      !Montgomery.isValidPoint(MontgomeryPoint(p, BigInt.one)));
+  _check('negative x is invalid',
+      !Montgomery.isValidPoint(MontgomeryPoint(-BigInt.one, BigInt.one)));
+  _check('x = 0 is not a valid public key',
+      !Montgomery.isValidPublicKeyX(BigInt.zero));
+
+  print('');
+  print('=== Results: $_passed passed, $_failed failed ===');
 }

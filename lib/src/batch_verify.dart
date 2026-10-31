@@ -1,22 +1,27 @@
 // batch_verify.dart
 
-// Batch verification of Ed256189 signatures
-// Based on batch verification technique by Daniel J. Bernstein (2012)
-// Formalized for Edwards curves by Henry de Valence et al. (2017)
-// "Batch Verification of Ed25519 Signatures"
-// Adapted for Curve256189 by Ismael Urzaiz Aranda (2026)
-import 'dart:typed_data';
-import 'dart:math';
-import 'package:crypto/crypto.dart';
-import 'params.dart';
-import 'edwards.dart';
-import 'eddsa.dart';
-import 'montgomery.dart';
+// Batch verification of XEdDSA signatures on Curve256189.
+//
+// For each signature choose a random non-zero scalar z_i and accumulate:
+//
+//   LHS = (sum z_i*s_i) * G
+//   RHS = sum (z_i * R_i) + sum (z_i*h_i * P_i)
+//
+// The batch is valid iff LHS == RHS as full points. Every input receives the
+// same strict validation as individual verification: 64-byte signatures,
+// canonical s < n, canonical even-y x-coordinates, and prime-order subgroup
+// membership for both R and P.
 
-// Container for a single signature verification unit
+import 'dart:typed_data';
+
+import 'montgomery.dart';
+import 'params.dart';
+import 'xeddsa.dart';
+
+// Container for a single signature verification unit.
 // message:   original message that was signed
-// signature: 65 bytes — R (33 bytes compressed) || s (32 bytes little-endian)
-// publicKey: 33 bytes compressed Edwards point
+// signature: 64 bytes — x(R) (32 bytes) || s (32 bytes, little-endian)
+// publicKey: 32 bytes — x(P) (little-endian)
 class SignatureBundle {
   final Uint8List message;
   final Uint8List signature;
@@ -31,94 +36,65 @@ class SignatureBundle {
 
 class BatchVerify {
   static final BigInt _n = Curve256189Params.n;
+  static final MontgomeryPoint _basePoint = MontgomeryPoint.G;
 
-  // Base point G in Twisted Edwards coordinates — must match EdDSA
-  static final EdwardsPoint g_ = TwistedEdwards.fromMontgomery(
-    MontgomeryPoint.G,
-  );
-
-  // Batch verify n signatures in a single operation
-  // Returns true if ALL signatures are valid
-  // Returns false if ANY signature is invalid
-  //
-  // Algorithm (Bernstein 2012):
-  // For each signature i, choose random scalar zi and compute:
-  //   lhs = sum(zi * si) * G
-  //   rhs = sum(zi * Ri + zi * hi * PKi)
-  // Valid iff lhs == rhs
-  //
-  // Security: random zi prevents forgery via linear combination
-  // Speedup:  ~1.5x-2x over individual verify for large batches
+  // Batch verify a list of signatures.
+  // Returns true if ALL signatures are valid; false if ANY is invalid.
   static bool verify(List<SignatureBundle> bundles) {
     if (bundles.isEmpty) return true;
 
-    // Single signature — fall back to individual verify
     if (bundles.length == 1) {
       final b = bundles[0];
-      return EdDSA.verify(b.message, b.signature, b.publicKey);
+      return XEdDSA.verify(b.message, b.signature, b.publicKey);
     }
 
-    final rng = Random.secure();
-
-    // Accumulate batch equation:
-    // lhsScalar = sum(zi * si) mod n
-    // rhs       = sum(zi * Ri + zi * hi * PKi)
+    final scalars = <BigInt>[];
+    final points = <MontgomeryPoint>[];
     BigInt lhsScalar = BigInt.zero;
-    EdwardsPoint? rhs;
 
     for (final bundle in bundles) {
-      // Decode signature: R (33 bytes) || s (32 bytes)
-      final rBytes = bundle.signature.sublist(0, 33);
-      final sBytes = bundle.signature.sublist(33, 65);
+      if (bundle.signature.length != XEdDSA.signatureLength) return false;
+      if (bundle.publicKey.length != XEdDSA.publicKeyLength) return false;
 
-      // Decode s — little-endian 32 bytes
-      BigInt s = BigInt.zero;
-      for (int i = 0; i < 32; i++) {
-        s += BigInt.from(sBytes[i]) << (8 * i);
-      }
-      s = s % _n;
+      final xR = Uint8List.fromList(bundle.signature.sublist(0, 32));
+      final s = XEdDSA.decodeLittleEndian(
+        Uint8List.fromList(bundle.signature.sublist(32, 64)),
+      );
 
-      // Decode commitment point R
-      final R = TwistedEdwards.decodePoint(rBytes);
+      if (s >= _n) return false;
+
+      final R = Montgomery.pointFromX(
+        XEdDSA.decodeLittleEndian(xR),
+        evenY: true,
+      );
       if (R == null) return false;
+      if (!Montgomery.isInPrimeOrderSubgroup(R)) return false;
 
-      // Decode public key point
-      final pk = TwistedEdwards.decodePoint(bundle.publicKey);
-      if (pk == null) return false;
+      final P = Montgomery.pointFromX(
+        XEdDSA.decodeLittleEndian(bundle.publicKey),
+        evenY: true,
+      );
+      if (P == null) return false;
+      if (!Montgomery.isInPrimeOrderSubgroup(P)) return false;
 
-      // Compute challenge hash: h = SHA-512(R || pk || message) mod n
-      // Uses full 64 bytes of SHA-512 output for uniform distribution
-      final hHash = sha512.convert([
-        ...rBytes,
-        ...bundle.publicKey,
-        ...bundle.message,
-      ]).bytes;
-      BigInt h = BigInt.zero;
-      for (int i = 0; i < 64; i++) {
-        h += BigInt.from(hHash[i]) << (8 * i);
-      }
-      h = h % _n;
+      final h = XEdDSA.challengeFor(
+        xR,
+        bundle.publicKey,
+        bundle.message,
+      );
 
-      // Random batch scalar zi (128-bit) — prevents forgery via linear combination
-      BigInt z = BigInt.zero;
-      for (int i = 0; i < 4; i++) {
-        z = (z << 32) + BigInt.from(rng.nextInt(0xFFFFFFFF));
-      }
-      z = z % _n;
+      // Random non-zero batch scalar prevents forgery via cancellation.
+      final z = Montgomery.randomScalar();
 
-      // Accumulate lhs: sum(zi * si) mod n
       lhsScalar = (lhsScalar + z * s) % _n;
-
-      // Accumulate rhs: zi*Ri + zi*hi*PKi
-      final ziR    = TwistedEdwards.scalarMul(z, R);
-      final ziHPk  = TwistedEdwards.scalarMul((z * h) % _n, pk);
-      final contrib = TwistedEdwards.add(ziR, ziHPk);
-
-      rhs = rhs == null ? contrib : TwistedEdwards.add(rhs, contrib);
+      scalars.add(z);
+      points.add(R);
+      scalars.add((z * h) % _n);
+      points.add(P);
     }
 
-    // Final check: sum(zi*si)*G == sum(zi*Ri + zi*hi*PKi)
-    final lhs = TwistedEdwards.scalarMul(lhsScalar, g_);
-    return lhs.x == rhs!.x && lhs.y == rhs.y;
+    final lhs = Montgomery.scalarMulFull(lhsScalar, _basePoint);
+    final rhs = Montgomery.multiScalarMul(scalars, points);
+    return Montgomery.pointsEqual(lhs, rhs);
   }
 }

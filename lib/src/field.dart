@@ -21,10 +21,16 @@ class FieldElement {
     return (a * b) % p;
   }
 
-  // Modular inversion via Extended Euclidean Algorithm
-  // Note: Dart BigInt.modPow has precision issues for 256-bit numbers
+  // Modular inversion via Extended Euclidean Algorithm.
+  // Throws instead of silently returning 0 for the undefined inverse of 0.
+  // Note: Dart BigInt.modPow has precision issues for 256-bit numbers.
   static BigInt inv(BigInt a) {
-    BigInt oldR = a, r = p;
+    final value = ((a % p) + p) % p;
+    if (value == BigInt.zero) {
+      throw ArgumentError('FieldElement.inv(0) is undefined modulo p');
+    }
+
+    BigInt oldR = value, r = p;
     BigInt oldS = BigInt.one, s = BigInt.zero;
     while (r != BigInt.zero) {
       final q = oldR ~/ r;

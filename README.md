@@ -4,7 +4,7 @@
 
 A pure-Dart elliptic curve cryptography library built on **Curve256189**, a Montgomery curve y² = x³ + Ax² + x over the prime field 𝔽ₚ with p = 2²⁵⁶ − 189.
 
-Curve256189 was designed and implemented by Ismael Urzaiz Aranda. It satisfies all eleven [SafeCurves](https://safecurves.cr.yp.to/) criteria (11/11), verified with SageMath (`dev/unit/safecurves_curve256189.sage`). The library provides X256189 (ECDH), Ed256189 and EdDSA (signatures), Elligator 2 (point encoding), HKDF, and AES-GCM, all implemented in Dart.
+Curve256189 was designed and implemented by Ismael Urzaiz Aranda. It satisfies all eleven [SafeCurves](https://safecurves.cr.yp.to/) criteria (11/11), verified with SageMath (`dev/unit/safecurves_curve256189.sage`). The library provides X256189 (ECDH), XEdDSA (signatures), Elligator 2 (point encoding), HKDF, and AES-GCM, all implemented in Dart.
 
 ---
 
@@ -66,13 +66,13 @@ The full parameter set, including the subgroup orders n and nᵗ and the generat
 | Component | Description |
 | --- | --- |
 | **Curve256189** | Montgomery curve: core arithmetic, point validation, scalar blinding |
-| **Ed256189** | Birationally equivalent twisted Edwards form |
+| **Ed256189** | Birationally equivalent twisted Edwards form (compatibility layer) |
 | **X256189** | ECDH key exchange with cofactor clearing per RFC 7748 |
-| **EdDSA** | Digital signatures per RFC 8032 |
+| **XEdDSA** | x-only Schnorr-style signatures on the Montgomery curve |
 | **Elligator 2** | Point encoding and decoding per RFC 9380 |
 | **HKDF** | Key derivation per RFC 5869 |
 | **AES-GCM** | Authenticated encryption per NIST SP 800-38D |
-| **Batch Verify** | High-throughput batch verification of Ed256189 signatures |
+| **Batch Verify** | High-throughput batch verification of XEdDSA signatures |
 
 ---
 
@@ -103,9 +103,11 @@ Full verification: `dev/unit/safecurves_curve256189.sage`
 ## Security Properties
 
 - **Montgomery ladder:** scalar multiplication executes a uniform sequence of operations per scalar bit.
-- **Scalar blinding:** randomized scalars via `Random.secure()` as a countermeasure against timing attacks.
+- **Scalar blinding:** randomized multiples of the full curve order `4n` via `Random.secure()`, which preserves the result for every curve point and reduces timing leakage.
 - **Point validation:** rejects the point at infinity, out-of-range coordinates, off-curve points, and low-order points.
 - **Cofactor clearing:** h = 4, following the RFC 7748 convention.
+- **Strict signature verification:** canonical `s < n`, exact 64-byte signatures, canonical even-`y` decoding, and prime-order subgroup membership for both `R` and `P`.
+- **Non-malleable signatures:** canonical scalars and full-point equality reject sign-flipped `R` and `s + n` variants.
 - **Elligator 2:** uniform random-looking point encoding, providing resistance to traffic analysis.
 
 ### Side-Channel Considerations
@@ -116,14 +118,19 @@ The implementation relies on Dart's `BigInt`, whose arithmetic is not guaranteed
 
 ## Test Vectors
 
-### EdDSA (Ed256189)
+### XEdDSA
 ```
 Seed:       0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20
-Public Key: 9ec4d1b44608cd0b927bf7aa9f1a40c6b9a39ee9370de6540836bfa1f225798000
+Public Key: 337d3142bff70cdcbe04d69ee7b7a36c3e8df6bba0a5e0a12cb4b1b580bab424
 Message:    "Hello Curve256189!"
-Signature:  5a43c931eeb6329f00c27e3daeef2ce888746d81209881130db681f8cb161b960
-            078cb5fdde0523ba9743ad258a9b2542ad05aee6fbf3bd5c816afe4bb81c39c13
+Signature:  c87e2d535cab5c2ede5993907c4c8d97aa6be84dd9de5b0b4b39e56d4d084284
+            ee7a80cfbff274f44f74b7a03b49b744c481f702a80c35a93ff03ad11cef142e
 ```
+
+The public key is identical to the X256189 key for the same seed, because both
+derive the cofactor-cleared scalar. The signature is `x(R) || s`, both
+little-endian 32-byte values. XEdDSA is **not** wire-compatible with RFC 8032
+EdDSA.
 
 ### X256189 (ECDH + HKDF)
 ```
@@ -154,21 +161,33 @@ Tag:       530f8afbc74536b9a963b4f1c4cb738b (NIST verified)
 
 ## Usage
 
-### EdDSA: Sign and Verify
+### XEdDSA: Sign and Verify
 ```dart
 import 'package:curve256189/curve256189.dart';
 import 'dart:typed_data';
 
-// Generate key pair
-final seed = Uint8List(32); // 32-byte random seed
-final keyPair = EdDSA.generateKeyPair(seed);
+// Generate key pair from a 32-byte seed
+final seed = Uint8List(32); // use a cryptographically random seed
+final keyPair = XEdDSA.generateKeyPair(seed);
 
-// Sign
+// Sign (deterministic, 64-byte signature)
 final message = Uint8List.fromList('Hello!'.codeUnits);
-final signature = EdDSA.sign(message, keyPair['privateKey']!);
+final signature = XEdDSA.sign(message, keyPair['privateKey']!);
 
 // Verify
-final valid = EdDSA.verify(message, signature, keyPair['publicKey']!);
+final valid = XEdDSA.verify(message, signature, keyPair['publicKey']!);
+```
+
+Batch verification uses the same 64-byte signatures and 32-byte public keys:
+
+```dart
+final ok = BatchVerify.verify([
+  SignatureBundle(
+    message: message,
+    signature: signature,
+    publicKey: keyPair['publicKey']!,
+  ),
+]);
 ```
 
 ### X256189: ECDH Key Exchange
@@ -224,7 +243,7 @@ SageMath dev/unit/safecurves_curve256189.sage
 dart dev/unit/test_aesgcm.dart
 dart dev/unit/test_batch_verify.dart
 dart dev/unit/test_blinding.dart
-dart dev/unit/test_eddsa.dart
+dart dev/unit/test_xeddsa.dart
 dart dev/unit/test_edwards.dart
 dart dev/unit/test_elligator.dart
 dart dev/unit/test_field.dart
@@ -239,10 +258,29 @@ dart dev/unit/test_x256189.dart
 ## Implementation Notes
 
 - **No `BigInt.modPow`:** Dart's `BigInt.modPow` has a known defect for 256-bit exponents. All modular exponentiation therefore uses a square-and-multiply implementation in `FieldElement.pow()`, verified by `dev/integration/test_modpow.dart`.
-- **Okeya-Sakurai y-recovery:** `TwistedEdwards.scalarMul` uses the Okeya-Sakurai (2001) formula to recover the y-coordinate after the x-only Montgomery ladder. Selecting a canonical even y is ambiguous and yields incorrect results in batch verification and general Edwards arithmetic.
+- **Okeya-Sakurai y-recovery:** `Montgomery.scalarMulFull` uses the Okeya-Sakurai (2001) formula to recover a full point from the x-only ladder, with a double-and-add fallback if the formula degenerates. Scalar blinding adds a random multiple of `4n`, so it is correct for low-order and mixed-order points as well.
+- **x-only signatures:** XEdDSA avoids Edwards addition entirely. Signing and verification canonicalise `P` and `R` to the even-`y` representative and check the exact full-point equation `[s]G == R + [h]P`, so variants such as `(x(R), n - s)` or a sign-flipped `R` cannot be accepted.
+- **Strict validation:** signatures must be exactly 64 bytes, `s < n`, and both `R` and `P` must decode to canonical even-`y` points in the prime-order subgroup. Low-order and mixed-order public keys are rejected.
 - **Parity bit handling:** `TwistedEdwards.decodePoint` tests `(bytes[32] & 1) == 1` rather than `bytes[32] == 1`, so that all odd parity byte values are decoded correctly.
 - **Little-endian encoding:** all byte serialization follows the RFC 7748 convention.
-- **Deterministic signatures:** the EdDSA nonce is derived as `hash(prefix || message)`.
+- **Deterministic signatures:** the XEdDSA nonce is derived as `SHA-512(domain || 0x01 || prefix || counter || message) mod n`, with the challenge as `SHA-512(domain || 0x02 || x(R) || x(P) || message) mod n`.
+
+### XEdDSA Scheme Summary
+
+| Item | Value |
+|---|---|
+| Domain separation | `Curve256189-XEdDSA-v1` |
+| Secret derivation | `sk = SHA-512(seed)[0..32]`, clamped; `a = 4·sk mod n` |
+| Public key | `x([a]G)`, 32-byte little-endian, canonical even `y` |
+| Nonce | `r = SHA-512(domain ‖ 0x01 ‖ prefix ‖ counter ‖ message) mod n` |
+| Challenge | `h = SHA-512(domain ‖ 0x02 ‖ x(R) ‖ x(P) ‖ message) mod n` |
+| Signature | `x(R) ‖ s`, where `s = r + h·a mod n` |
+| Verification | `[s]G == R + [h]P` as full points, after subgroup checks |
+
+This is a Curve256189-specific x-only construction inspired by XEdDSA-style
+designs. It is not the Signal XEdDSA wire format and has not undergone an
+independent cryptographic audit; review it before deploying it in a
+security-critical system.
 
 ---
 

@@ -18,7 +18,8 @@ void main() {
     nonce: nonce1,
     plaintext: Uint8List(0),
   );
-  final tagHex = result1.tag.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+  final tagHex =
+      result1.tag.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
   print('  tag: $tagHex');
   print('  matches NIST? ${tagHex == '530f8afbc74536b9a963b4f1c4cb738b'}');
 
@@ -40,7 +41,8 @@ void main() {
     tag: result2.tag,
   );
   print('  plaintext:  ${String.fromCharCodes(plaintext2)}');
-  print('  ciphertext: ${result2.ciphertext.map((b) => b.toRadixString(16).padLeft(2, '0')).join()}');
+  print(
+      '  ciphertext: ${result2.ciphertext.map((b) => b.toRadixString(16).padLeft(2, '0')).join()}');
   print('  decrypted:  ${String.fromCharCodes(decrypted2!)}');
   print('  match? ${plaintext2.toString() == decrypted2.toString()}');
 
@@ -110,7 +112,8 @@ void main() {
 
   // Compute shared secret using X25519-style Diffie-Hellman
   final sharedAlice = X256189.computeSharedSecret(
-    aliceKP['privateKey']!, bobKP['publicKey']!,
+    aliceKP['privateKey']!,
+    bobKP['publicKey']!,
   );
 
   // Derive AES key and nonce using HKDF
@@ -135,7 +138,8 @@ void main() {
 
   // Bob derives the same key and decrypts the message
   final sharedBob = X256189.computeSharedSecret(
-    bobKP['privateKey']!, aliceKP['publicKey']!,
+    bobKP['privateKey']!,
+    aliceKP['publicKey']!,
   );
   final aesKeyBob = HKDF.derive(
     ikm: sharedBob!,

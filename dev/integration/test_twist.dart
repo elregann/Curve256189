@@ -21,7 +21,7 @@ bool _isPrime(BigInt n) {
   for (int i = 3; i < 1000; i += 2) {
     if (n % BigInt.from(i) == BigInt.zero) return false;
   }
-  return true;  // Likely prime for the purposes of this test
+  return true; // Likely prime for the purposes of this test
 }
 
 void main() {
@@ -78,11 +78,55 @@ void main() {
   print('  Checking for odd small prime factors...');
 
   final oddPrimes = [
-    3, 5, 7, 11, 13, 17, 19, 23, 29,
-    31, 37, 41, 43, 47, 53, 59, 61, 67, 71,
-    73, 79, 83, 89, 97, 101, 103, 107, 109, 113,
-    127, 131, 137, 139, 149, 151, 157, 163, 167, 173,
-    179, 181, 191, 193, 197, 199, 211, 223, 227, 229,
+    3,
+    5,
+    7,
+    11,
+    13,
+    17,
+    19,
+    23,
+    29,
+    31,
+    37,
+    41,
+    43,
+    47,
+    53,
+    59,
+    61,
+    67,
+    71,
+    73,
+    79,
+    83,
+    89,
+    97,
+    101,
+    103,
+    107,
+    109,
+    113,
+    127,
+    131,
+    137,
+    139,
+    149,
+    151,
+    157,
+    163,
+    167,
+    173,
+    179,
+    181,
+    191,
+    193,
+    197,
+    199,
+    211,
+    223,
+    227,
+    229,
   ];
 
   final dangerousFactors = <int>[];
@@ -111,9 +155,11 @@ void main() {
     print('  SafeCurves criterion 9: PASS.');
   } else {
     print('  Twist has dangerous factors.');
-    if (powerOf2 > 3) print('    Power-of-2 cofactor is too large: 2^$powerOf2');
+    if (powerOf2 > 3)
+      print('    Power-of-2 cofactor is too large: 2^$powerOf2');
     if (!subgroupPrime) print('    Twist subgroup is not prime');
-    if (dangerousFactors.isNotEmpty) print('    Dangerous odd factors: $dangerousFactors');
+    if (dangerousFactors.isNotEmpty)
+      print('    Dangerous odd factors: $dangerousFactors');
   }
   print('');
   print('=== Twist Security Test Completed ===');

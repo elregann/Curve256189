@@ -56,7 +56,8 @@ void main() {
   final fieldTime = stopwatchField.elapsedMicroseconds / fieldIterations;
   print('Iterations: $fieldIterations');
   print('Total time: ${stopwatchField.elapsedMilliseconds} ms');
-  print('Average time: ${fieldTime.toStringAsFixed(2)} microseconds per operation');
+  print(
+      'Average time: ${fieldTime.toStringAsFixed(2)} microseconds per operation');
   print('Sample: ${fieldResult.toString().substring(0, 20)}...');
   print('');
 
@@ -86,7 +87,8 @@ void main() {
   final scalarTime = stopwatchScalar.elapsedMicroseconds / scalarIterations;
   print('Iterations: $scalarIterations');
   print('Total time: ${stopwatchScalar.elapsedMilliseconds} ms');
-  print('Average time: ${scalarTime.toStringAsFixed(2)} microseconds per operation');
+  print(
+      'Average time: ${scalarTime.toStringAsFixed(2)} microseconds per operation');
   print('Sample: x = ${scalarResult.x.toString().substring(0, 20)}...');
   print('');
 
@@ -100,8 +102,9 @@ void main() {
   // Generate two random points for benchmarking
   final scalar1 = randomScalar();
   final scalar2 = randomScalar();
-  final point1 = TwistedEdwards.scalarMul(scalar1, EdDSA.G);
-  final point2 = TwistedEdwards.scalarMul(scalar2, EdDSA.G);
+  final edG = TwistedEdwards.fromMontgomery(MontgomeryPoint.G);
+  final point1 = TwistedEdwards.scalarMul(scalar1, edG);
+  final point2 = TwistedEdwards.scalarMul(scalar2, edG);
 
   // Warm-up phase
   for (int i = 0; i < addWarmup; i++) {
@@ -110,7 +113,7 @@ void main() {
 
   // Measurement phase
   final stopwatchAdd = Stopwatch()..start();
-  EdwardsPoint addResult = point1;  // Initialize with a valid point
+  EdwardsPoint addResult = point1; // Initialize with a valid point
   for (int i = 0; i < addIterations; i++) {
     addResult = TwistedEdwards.add(point1, point2);
   }
@@ -119,13 +122,18 @@ void main() {
   final addTime = stopwatchAdd.elapsedMicroseconds / addIterations;
   print('Iterations: $addIterations');
   print('Total time: ${stopwatchAdd.elapsedMilliseconds} ms');
-  print('Average time: ${addTime.toStringAsFixed(2)} microseconds per operation');
-  print('Sample: (${addResult.x.toString().substring(0, 10)}..., ${addResult.y.toString().substring(0, 10)}...)');
+  print(
+      'Average time: ${addTime.toStringAsFixed(2)} microseconds per operation');
+  print(
+      'Sample: (${addResult.x.toString().substring(0, 10)}..., ${addResult.y.toString().substring(0, 10)}...)');
   print('');
 
   // Section 4: Benchmark Summary
   print('BENCHMARK SUMMARY');
-  print('Field multiplication: ${fieldTime.toStringAsFixed(2)} microseconds per operation');
-  print('Scalar multiplication: ${scalarTime.toStringAsFixed(2)} microseconds per operation');
-  print('Point addition: ${addTime.toStringAsFixed(2)} microseconds per operation');
+  print(
+      'Field multiplication: ${fieldTime.toStringAsFixed(2)} microseconds per operation');
+  print(
+      'Scalar multiplication: ${scalarTime.toStringAsFixed(2)} microseconds per operation');
+  print(
+      'Point addition: ${addTime.toStringAsFixed(2)} microseconds per operation');
 }

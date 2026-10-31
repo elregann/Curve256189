@@ -12,8 +12,8 @@ void main() {
   print('Curve256189 MOV Attack Test');
   print('');
 
-  final p = Curve256189Params.p;  // Field characteristic
-  final n = Curve256189Params.n;  // Curve order
+  final p = Curve256189Params.p; // Field characteristic
+  final n = Curve256189Params.n; // Curve order
 
   print('Parameters:');
   print('  p (field characteristic) = $p');
@@ -53,11 +53,14 @@ void main() {
 
     // Severity assessment based on the embedding degree
     if (foundK <= 6) {
-      print('  CRITICAL: Field extension is too small, practical attack is possible.');
+      print(
+          '  CRITICAL: Field extension is too small, practical attack is possible.');
     } else if (foundK <= 20) {
-      print('  WARNING: Field extension is moderate; attack may be possible with sufficient resources.');
+      print(
+          '  WARNING: Field extension is moderate; attack may be possible with sufficient resources.');
     } else {
-      print('  CAUTION: Field extension is relatively small but may still be secure.');
+      print(
+          '  CAUTION: Field extension is relatively small but may still be secure.');
     }
   } else {
     print('  SECURE: No small embedding degree found for k <= $maxK');
@@ -65,7 +68,8 @@ void main() {
 
     // Additional assurance for sufficiently large search bound
     if (maxK >= 32) {
-      print('  Embedding degree k > $maxK meets security requirements for 256-bit curves.');
+      print(
+          '  Embedding degree k > $maxK meets security requirements for 256-bit curves.');
     }
   }
 

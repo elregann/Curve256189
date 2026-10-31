@@ -1,7 +1,7 @@
 // test_suite.dart
 
 // Curve256189 Test Suite
-// Covers: group law, EdDSA sign/verify, forgery resistance
+// Covers: group law, XEdDSA Sign/Verify, forgery resistance
 //
 // Each test runs multiple iterations with random inputs
 // to ensure statistical coverage of edge cases.
@@ -35,6 +35,9 @@ class Curve256189Test {
     return scalar % Curve256189Params.n;
   }
 
+  static final EdwardsPoint G =
+      TwistedEdwards.fromMontgomery(MontgomeryPoint.G);
+
   static bool _pointEqual(EdwardsPoint p1, EdwardsPoint p2) {
     return p1.x == p2.x && p1.y == p2.y;
   }
@@ -49,11 +52,12 @@ class Curve256189Test {
       final a = _randomScalar();
       final b = _randomScalar();
 
-      final p1 = TwistedEdwards.scalarMul(a, EdDSA.G);
-      final p2 = TwistedEdwards.scalarMul(b, EdDSA.G);
+      final p1 = TwistedEdwards.scalarMul(a, G);
+      final p2 = TwistedEdwards.scalarMul(b, G);
       final pSum = TwistedEdwards.add(p1, p2);
 
-      final pDirect = TwistedEdwards.scalarMul((a + b) % Curve256189Params.n, EdDSA.G);
+      final pDirect =
+          TwistedEdwards.scalarMul((a + b) % Curve256189Params.n, G);
 
       if (!_pointEqual(pDirect, pSum)) {
         print('FAIL: Group law violation at iteration $i');
@@ -66,18 +70,18 @@ class Curve256189Test {
     print('PASS: Group law holds for all tested scalars');
   }
 
-  // Section 2: EdDSA Sign/Verify Test
+  // Section 2: XEdDSA Sign/Verify Test
   // Ensures that valid signatures always verify.
   static void testSignVerify() {
-    print('Running EdDSA sign/verify test (10000 iterations)...');
+    print('Running XEdDSA Sign/Verify test (10000 iterations)...');
 
     for (int i = 0; i < 10000; i++) {
       final seed = _randomBytes(32);
-      final keypair = EdDSA.generateKeyPair(seed);
+      final keypair = XEdDSA.generateKeyPair(seed);
       final message = _randomBytes(32);
-      final signature = EdDSA.sign(message, keypair['privateKey']!);
+      final signature = XEdDSA.sign(message, keypair['privateKey']!);
 
-      if (!EdDSA.verify(message, signature, keypair['publicKey']!)) {
+      if (!XEdDSA.verify(message, signature, keypair['publicKey']!)) {
         print('FAIL: Valid signature failed verification at iteration $i');
         return;
       }
@@ -96,43 +100,42 @@ class Curve256189Test {
     print('Running forgery resistance test...');
 
     final seed = _randomBytes(32);
-    final keypair = EdDSA.generateKeyPair(seed);
+    final keypair = XEdDSA.generateKeyPair(seed);
     final message = _randomBytes(32);
-    final signature = EdDSA.sign(message, keypair['privateKey']!);
+    final signature = XEdDSA.sign(message, keypair['privateKey']!);
 
     // Test 1: Wrong public key
     final wrongSeed = _randomBytes(32);
-    final wrongKeypair = EdDSA.generateKeyPair(wrongSeed);
+    final wrongKeypair = XEdDSA.generateKeyPair(wrongSeed);
     _checkForgery('Wrong public key',
-        !EdDSA.verify(message, signature, wrongKeypair['publicKey']!));
+        !XEdDSA.verify(message, signature, wrongKeypair['publicKey']!));
 
     // Test 2: Wrong message
     final wrongMessage = _randomBytes(32);
     _checkForgery('Wrong message',
-        !EdDSA.verify(wrongMessage, signature, keypair['publicKey']!));
+        !XEdDSA.verify(wrongMessage, signature, keypair['publicKey']!));
 
     // Test 3: Signature malleability with modified s component
     final malleableSig = Uint8List.fromList(signature);
-    malleableSig[40] ^= 0x01;  // Flip one bit in the s component
+    malleableSig[40] ^= 0x01; // Flip one bit in the s component
     _checkForgery('Malleable signature (modified s)',
-        !EdDSA.verify(message, malleableSig, keypair['publicKey']!));
+        !XEdDSA.verify(message, malleableSig, keypair['publicKey']!));
 
     // Test 4: Signature malleability with modified R component
     final malleableSigR = Uint8List.fromList(signature);
-    malleableSigR[20] ^= 0x01;  // Flip one bit in the R component
+    malleableSigR[20] ^= 0x01; // Flip one bit in the R component
     _checkForgery('Malleable signature (modified R)',
-        !EdDSA.verify(message, malleableSigR, keypair['publicKey']!));
+        !XEdDSA.verify(message, malleableSigR, keypair['publicKey']!));
 
     // Test 5: Random signatures (100 attempts, sufficient for statistical coverage)
     int randomForgeries = 0;
     for (int i = 0; i < 100; i++) {
-      final fakeSig = _randomBytes(65);
-      if (EdDSA.verify(message, fakeSig, keypair['publicKey']!)) {
+      final fakeSig = _randomBytes(64);
+      if (XEdDSA.verify(message, fakeSig, keypair['publicKey']!)) {
         randomForgeries++;
       }
     }
-    _checkForgery('Random signatures (100 attempts)',
-        randomForgeries == 0);
+    _checkForgery('Random signatures (100 attempts)', randomForgeries == 0);
 
     print('PASS: All forgery attempts rejected');
   }

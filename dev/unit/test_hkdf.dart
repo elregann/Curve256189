@@ -8,10 +8,38 @@ void main() {
 
   // Shared secret from test_x256189.dart
   final sharedSecret = Uint8List.fromList([
-    0xa5, 0xba, 0x31, 0x4a, 0x47, 0x59, 0x56, 0xd6,
-    0xa0, 0x2d, 0x22, 0x7c, 0x8a, 0xe0, 0x94, 0xe6,
-    0x73, 0xbf, 0x59, 0xef, 0xf0, 0x25, 0x7e, 0x76,
-    0xf7, 0xd4, 0x7c, 0x9e, 0x11, 0xee, 0x6d, 0x3a,
+    0xa5,
+    0xba,
+    0x31,
+    0x4a,
+    0x47,
+    0x59,
+    0x56,
+    0xd6,
+    0xa0,
+    0x2d,
+    0x22,
+    0x7c,
+    0x8a,
+    0xe0,
+    0x94,
+    0xe6,
+    0x73,
+    0xbf,
+    0x59,
+    0xef,
+    0xf0,
+    0x25,
+    0x7e,
+    0x76,
+    0xf7,
+    0xd4,
+    0x7c,
+    0x9e,
+    0x11,
+    0xee,
+    0x6d,
+    0x3a,
   ]);
 
   final info = Uint8List.fromList('X256189 shared key'.codeUnits);
@@ -20,17 +48,21 @@ void main() {
   print('');
   print('Test 1 - Derive key from shared secret:');
   final derived = HKDF.derive(ikm: sharedSecret, info: info);
-  print('  shared:  ${sharedSecret.map((b) => b.toRadixString(16).padLeft(2, '0')).join()}');
-  print('  derived: ${derived.map((b) => b.toRadixString(16).padLeft(2, '0')).join()}');
+  print(
+      '  shared:  ${sharedSecret.map((b) => b.toRadixString(16).padLeft(2, '0')).join()}');
+  print(
+      '  derived: ${derived.map((b) => b.toRadixString(16).padLeft(2, '0')).join()}');
   print('  length: ${derived.length} bytes');
-  print('  matches SageMath? ${derived.map((b) => b.toRadixString(16).padLeft(2, '0')).join() == '55c8e6fdcbb611ef67fb69b6245f688a372828f56b78b5f6006d389ee215f6ba'}');
+  print(
+      '  matches SageMath? ${derived.map((b) => b.toRadixString(16).padLeft(2, '0')).join() == '55c8e6fdcbb611ef67fb69b6245f688a372828f56b78b5f6006d389ee215f6ba'}');
 
   // Test case 2: Different shared secrets produce different derived keys
   print('');
   print('Test 2 - Do different shared secrets produce different derived keys?');
   final shared2 = Uint8List(32);
   final derived2 = HKDF.derive(ikm: shared2, info: info);
-  print('  derived2: ${derived2.map((b) => b.toRadixString(16).padLeft(2, '0')).join()}');
+  print(
+      '  derived2: ${derived2.map((b) => b.toRadixString(16).padLeft(2, '0')).join()}');
   print('  different? ${derived.toString() != derived2.toString()}');
 
   // Test case 3: Different info strings produce different derived keys
@@ -38,7 +70,8 @@ void main() {
   print('Test 3 - Do different info strings produce different derived keys?');
   final info2 = Uint8List.fromList('X256189 auth key'.codeUnits);
   final derived3 = HKDF.derive(ikm: sharedSecret, info: info2);
-  print('  derived3: ${derived3.map((b) => b.toRadixString(16).padLeft(2, '0')).join()}');
+  print(
+      '  derived3: ${derived3.map((b) => b.toRadixString(16).padLeft(2, '0')).join()}');
   print('  different? ${derived.toString() != derived3.toString()}');
 
   // Test case 4: ECDH + HKDF end-to-end
@@ -50,16 +83,20 @@ void main() {
   final bobKP = X256189.generateKeyPair(seedBob);
 
   final sharedAlice = X256189.computeSharedSecret(
-    aliceKP['privateKey']!, bobKP['publicKey']!,
+    aliceKP['privateKey']!,
+    bobKP['publicKey']!,
   );
   final sharedBob = X256189.computeSharedSecret(
-    bobKP['privateKey']!, aliceKP['publicKey']!,
+    bobKP['privateKey']!,
+    aliceKP['publicKey']!,
   );
 
   final keyAlice = HKDF.derive(ikm: sharedAlice!, info: info);
   final keyBob = HKDF.derive(ikm: sharedBob!, info: info);
-  print('  Alice key: ${keyAlice.map((b) => b.toRadixString(16).padLeft(2, '0')).join()}');
-  print('  Bob key:   ${keyBob.map((b) => b.toRadixString(16).padLeft(2, '0')).join()}');
+  print(
+      '  Alice key: ${keyAlice.map((b) => b.toRadixString(16).padLeft(2, '0')).join()}');
+  print(
+      '  Bob key:   ${keyBob.map((b) => b.toRadixString(16).padLeft(2, '0')).join()}');
   print('  match? ${keyAlice.toString() == keyBob.toString()}');
 
   // Test case 5: Verify that output length is 32 bytes

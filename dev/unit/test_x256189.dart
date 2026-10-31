@@ -3,25 +3,49 @@
 import 'dart:typed_data';
 import 'package:curve256189/curve256189.dart';
 
-void main() {
-  print('=== Test: X256189 ECDH + EdDSA Curve256189 ===');
+int _passed = 0;
+int _failed = 0;
 
-  // Alice and Bob seeds
+void _check(String name, bool result) {
+  print('  ${result ? "PASS" : "FAIL"}: $name');
+  if (result) {
+    _passed++;
+  } else {
+    _failed++;
+  }
+}
+
+String _hex(Uint8List bytes) =>
+    bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+
+Uint8List _encodeX(BigInt x) {
+  final out = Uint8List(32);
+  var v = x;
+  for (int i = 0; i < 32; i++) {
+    out[i] = (v & BigInt.from(0xff)).toInt();
+    v = v >> 8;
+  }
+  return out;
+}
+
+void main() {
+  print('=== Test: X256189 ECDH + XEdDSA Curve256189 ===');
+  print('');
+
   final seedAlice = Uint8List.fromList(List.generate(32, (i) => i + 1));
   final seedBob = Uint8List.fromList(List.generate(32, (i) => i + 33));
 
-  // Test case 1: Key pair generation
-  print('');
-  print('Test 1 - Key Generation:');
+  print('Test 1 - Key generation:');
   final aliceKP = X256189.generateKeyPair(seedAlice);
   final bobKP = X256189.generateKeyPair(seedBob);
-  print('  Alice PK: ${aliceKP['publicKey']!.map((b) => b.toRadixString(16).padLeft(2, '0')).join()}');
-  print('  Bob PK:   ${bobKP['publicKey']!.map((b) => b.toRadixString(16).padLeft(2, '0')).join()}');
-  print('  PK length: ${aliceKP['publicKey']!.length} bytes');
+  print('  Alice PK: ${_hex(aliceKP['publicKey']!)}');
+  print('  Bob PK:   ${_hex(bobKP['publicKey']!)}');
+  _check('public key is 32 bytes', aliceKP['publicKey']!.length == 32);
+  _check('private key is the seed',
+      _hex(aliceKP['privateKey']!) == _hex(seedAlice));
 
-  // Test case 2: Shared secret computed by Alice and Bob should match
   print('');
-  print('Test 2 - Does Alice\'s shared secret equal Bob\'s shared secret?');
+  print('Test 2 - Shared secret agreement:');
   final sharedAlice = X256189.computeSharedSecret(
     aliceKP['privateKey']!,
     bobKP['publicKey']!,
@@ -30,64 +54,76 @@ void main() {
     bobKP['privateKey']!,
     aliceKP['publicKey']!,
   );
-  print('  Alice shared: ${sharedAlice!.map((b) => b.toRadixString(16).padLeft(2, '0')).join()}');
-  print('  Bob shared:   ${sharedBob!.map((b) => b.toRadixString(16).padLeft(2, '0')).join()}');
-  print('  match? ${sharedAlice.toString() == sharedBob.toString()}');
+  _check(
+      'both sides derive a secret', sharedAlice != null && sharedBob != null);
+  _check(
+      'shared secrets match',
+      sharedAlice != null &&
+          sharedBob != null &&
+          _hex(sharedAlice) == _hex(sharedBob));
 
-  // Test case 3: Different seeds produce different shared secrets
   print('');
-  print('Test 3 - Do different seeds produce different shared secrets?');
-  final seedEve = Uint8List.fromList(List.generate(32, (i) => i + 65));
-  final eveKP = X256189.generateKeyPair(seedEve);
-  final sharedEve = X256189.computeSharedSecret(
-    eveKP['privateKey']!,
-    aliceKP['publicKey']!,
+  print('Test 3 - Invalid public keys:');
+  _check(
+    'zero public key rejected',
+    X256189.computeSharedSecret(aliceKP['privateKey']!, Uint8List(32)) == null,
   );
-  print('  Eve shared: ${sharedEve!.map((b) => b.toRadixString(16).padLeft(2, '0')).join()}');
-  print('  Eve != Alice? ${sharedEve.toString() != sharedAlice.toString()}');
+  _check(
+    'x = p - 1 (order 4) rejected',
+    X256189.computeSharedSecret(
+          aliceKP['privateKey']!,
+          _encodeX(Curve256189Params.p - BigInt.one),
+        ) ==
+        null,
+  );
+  final mixed = Montgomery.add(
+    MontgomeryPoint.G,
+    MontgomeryPoint(BigInt.zero, BigInt.zero),
+  );
+  _check(
+    'mixed-order public key rejected',
+    X256189.computeSharedSecret(aliceKP['privateKey']!, _encodeX(mixed.x)) ==
+        null,
+  );
+  _check(
+    '31-byte public key rejected',
+    X256189.computeSharedSecret(
+          aliceKP['privateKey']!,
+          aliceKP['publicKey']!.sublist(0, 31),
+        ) ==
+        null,
+  );
 
-  // Test case 4: Invalid public key should be rejected
   print('');
-  print('Test 4 - Is an invalid public key rejected?');
-  final invalidPK = Uint8List(32);
-  final result = X256189.computeSharedSecret(aliceKP['privateKey']!, invalidPK);
-  print('  invalid PK result is null? ${result == null}');
+  print('Test 4 - XEdDSA uses the same public key:');
+  final aliceEdKP = XEdDSA.generateKeyPair(seedAlice);
+  _check(
+    'XEdDSA and X256189 public keys match',
+    _hex(aliceEdKP['publicKey']!) == _hex(aliceKP['publicKey']!),
+  );
 
-  // Test case 5: Public key length should be exactly 32 bytes
   print('');
-  print('Test 5 - Is the public key length 32 bytes?');
-  print('  ${aliceKP['publicKey']!.length == 32}');
-
-  // Test case 6: EdDSA key pair generated from the same seed
-  print('');
-  print('Test 6 - EdDSA key pair from the same seed:');
-  final aliceEdKP = EdDSA.generateKeyPair(seedAlice);
-  final bobEdKP = EdDSA.generateKeyPair(seedBob);
-  print('  Alice EdDSA PK: ${aliceEdKP['publicKey']!.map((b) => b.toRadixString(16).padLeft(2, '0')).join()}');
-  print('  Bob EdDSA PK:   ${bobEdKP['publicKey']!.map((b) => b.toRadixString(16).padLeft(2, '0')).join()}');
-  print('  PK different from ECDH PK? ${aliceEdKP['publicKey']!.toString() != aliceKP['publicKey']!.toString()}');
-
-  // Test case 7: Alice signs a message, Bob verifies
-  print('');
-  print('Test 7 - Alice signs a message, then Bob verifies:');
+  print('Test 5 - Sign and verify:');
   final message = Uint8List.fromList('Hello X256189!'.codeUnits);
-  final signature = EdDSA.sign(message, aliceEdKP['privateKey']!);
-  final verified = EdDSA.verify(message, signature, aliceEdKP['publicKey']!);
-  print('  Signature: ${signature.map((b) => b.toRadixString(16).padLeft(2, '0')).join().substring(0, 32)}...');
-  print('  Verified? $verified');
+  final signature = XEdDSA.sign(message, aliceEdKP['privateKey']!);
+  _check('valid signature verifies',
+      XEdDSA.verify(message, signature, aliceEdKP['publicKey']!));
+  _check(
+    'tampered message fails',
+    !XEdDSA.verify(
+      Uint8List.fromList('Hello X256189?'.codeUnits),
+      signature,
+      aliceEdKP['publicKey']!,
+    ),
+  );
 
-  // Test case 8: Tampered message should fail verification
   print('');
-  print('Test 8 - Does a tampered message fail verification?');
-  final tamperedMessage = Uint8List.fromList('Hello X256189?'.codeUnits);
-  final verifiedTampered = EdDSA.verify(tamperedMessage, signature, aliceEdKP['publicKey']!);
-  print('  Verified tampered? $verifiedTampered');
+  print('Test 6 - Combined ECDH + signature:');
+  final combinedMessage = Uint8List.fromList([...sharedAlice!, ...message]);
+  final combinedSig = XEdDSA.sign(combinedMessage, aliceEdKP['privateKey']!);
+  _check('combined message verifies',
+      XEdDSA.verify(combinedMessage, combinedSig, aliceEdKP['publicKey']!));
 
-  // Test case 9: Combined ECDH shared secret + EdDSA signature
   print('');
-  print('Test 9 - Combined: ECDH shared secret with EdDSA signature:');
-  final combinedMessage = Uint8List.fromList([...sharedAlice, ...message]);
-  final combinedSig = EdDSA.sign(combinedMessage, aliceEdKP['privateKey']!);
-  final combinedVerified = EdDSA.verify(combinedMessage, combinedSig, aliceEdKP['publicKey']!);
-  print('  Combined verify? $combinedVerified');
+  print('=== Results: $_passed passed, $_failed failed ===');
 }

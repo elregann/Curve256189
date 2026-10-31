@@ -35,7 +35,8 @@ void main() {
   final resultInv = FieldElement.inv(a);
   print('Test 4 - Modular Inverse:');
   print('  inv(a) = $resultInv');
-  print('  a * inv(a) mod p == 1? ${FieldElement.mul(a, resultInv) == BigInt.one}');
+  print(
+      '  a * inv(a) mod p == 1? ${FieldElement.mul(a, resultInv) == BigInt.one}');
   print('');
 
   // Test case 5: Modular exponentiation

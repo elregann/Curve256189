@@ -32,12 +32,12 @@ void main() {
 
   // Test case 4: Timing comparison between scalars with many zero bits and many one bits
   final scalarManyZeros = BigInt.parse(
-      '100000000000000000000000000000000000000000000000000000000000000000', radix: 16
-  );
+      '100000000000000000000000000000000000000000000000000000000000000000',
+      radix: 16);
 
   final scalarManyOnes = BigInt.parse(
-      '1ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff', radix: 16
-  );
+      '1ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
+      radix: 16);
 
   print('Test 4 - Timing comparison:');
 
@@ -61,9 +61,10 @@ void main() {
   print('  Is timing consistent? ${(timeZeros - timeOnes).abs() < 500}');
   print('');
 
-  // Test case 5: Verify that EdDSA sign and verify still work correctly after Montgomery Ladder changes
-  print('Test 5 - Does EdDSA remain valid after Montgomery Ladder implementation?');
-  print('  (Run test_eddsa.dart for confirmation.)');
+  // Test case 5: Verify that XEdDSA sign and verify still work correctly after Montgomery Ladder changes
+  print(
+      'Test 5 - Does XEdDSA remain valid after Montgomery Ladder implementation?');
+  print('  (Run test_xeddsa.dart for confirmation.)');
   print('');
 
   print('=== All Tests Completed ===');

@@ -33,15 +33,53 @@ void main() {
   print('─────────────────────────────────────────');
 
   final key = Uint8List.fromList([
-    0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
-    0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
-    0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
-    0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f,
+    0x00,
+    0x01,
+    0x02,
+    0x03,
+    0x04,
+    0x05,
+    0x06,
+    0x07,
+    0x08,
+    0x09,
+    0x0a,
+    0x0b,
+    0x0c,
+    0x0d,
+    0x0e,
+    0x0f,
+    0x10,
+    0x11,
+    0x12,
+    0x13,
+    0x14,
+    0x15,
+    0x16,
+    0x17,
+    0x18,
+    0x19,
+    0x1a,
+    0x1b,
+    0x1c,
+    0x1d,
+    0x1e,
+    0x1f,
   ]);
 
   final nonce = Uint8List.fromList([
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
   ]);
 
   print('Key Length: ${key.length} bytes (AES-256)');
@@ -118,18 +156,19 @@ void main() {
 
   // Attempt 4a: Tamper with ciphertext
   final tamperedCiphertext = Uint8List.fromList(ciphertext);
-  tamperedCiphertext[0] ^= 0x01;  // Flip one bit
+  tamperedCiphertext[0] ^= 0x01; // Flip one bit
   final result4a = AESGCM.decrypt(
     key: key,
     nonce: nonce,
     ciphertext: tamperedCiphertext,
     tag: tag,
   );
-  print('  4a) Tampered ciphertext: ${result4a == null ? 'REJECTED' : 'ERROR'}');
+  print(
+      '  4a) Tampered ciphertext: ${result4a == null ? 'REJECTED' : 'ERROR'}');
 
   // Attempt 4b: Tamper with authentication tag
   final tamperedTag = Uint8List.fromList(tag);
-  tamperedTag[0] ^= 0x01;  // Flip one bit
+  tamperedTag[0] ^= 0x01; // Flip one bit
   final result4b = AESGCM.decrypt(
     key: key,
     nonce: nonce,
@@ -139,7 +178,8 @@ void main() {
   print('  4b) Tampered tag: ${result4b == null ? 'REJECTED' : 'ERROR'}');
 
   // Attempt 4c: Wrong key
-  final wrongKey = Uint8List.fromList(List.generate(32, (i) => (i + 100) % 256));
+  final wrongKey =
+      Uint8List.fromList(List.generate(32, (i) => (i + 100) % 256));
   final result4c = AESGCM.decrypt(
     key: wrongKey,
     nonce: nonce,
@@ -164,7 +204,7 @@ void main() {
   // This is INSECURE — do not do this in real code!
   final result2 = AESGCM.encrypt(
     key: key,
-    nonce: nonce,  // SAME nonce as before (INSECURE!)
+    nonce: nonce, // SAME nonce as before (INSECURE!)
     plaintext: plaintext2,
   );
 

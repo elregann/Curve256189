@@ -29,59 +29,100 @@ class Montgomery {
   // Optimized constant: a24 = (A + 2) / 4 mod p
   static final BigInt a24 = Curve256189Params.a24;
 
+  static final BigInt _n = Curve256189Params.n;
+
+  // Full group order #E = 4n. Adding a multiple of this to a scalar leaves
+  // [k]P unchanged for every point on the curve, not just prime-order points.
+  static final BigInt _curveOrder = _n * BigInt.from(4);
+
+  // x-coordinates of the low-order points (cofactor h = 4):
+  //   order 2: x = 0  (point (0, 0))
+  //   order 4: x = p - 1
+  static final BigInt _lowOrderX2 = BigInt.zero;
+  static final BigInt _lowOrderX4 = p - BigInt.one;
+
+  // y² = x³ + Ax² + x
+  static BigInt curveRhs(BigInt x) {
+    final x2 = FieldElement.mul(x, x);
+    final x3 = FieldElement.mul(x, x2);
+    return FieldElement.add(
+      FieldElement.add(x3, FieldElement.mul(A, x2)),
+      x,
+    );
+  }
+
   // Point validation: y² = x³ + Ax² + x
   static bool isOnCurve(MontgomeryPoint point) {
     if (point.isInfinity) return true;
-    final x = point.x;
-    final y = point.y;
-    final left = FieldElement.mul(y, y);
-    final right = FieldElement.add(
-      FieldElement.add(
-        FieldElement.mul(x, FieldElement.mul(x, x)),
-        FieldElement.mul(A, FieldElement.mul(x, x)),
-      ),
-      x,
-    );
-    return left == right;
+    return FieldElement.mul(point.y, point.y) == curveRhs(point.x);
   }
-
-  // Low-order point x-coordinates (derived from cofactor h=4)
-  // Order 2: x = 0 (point (0,0))
-  // Order 4: x = p-1
-  static final BigInt _lowOrderX2 = BigInt.zero;
-  static final BigInt _lowOrderX4 = p - BigInt.one;
 
   // Full point validation for external inputs
   // Rejects infinity, out-of-range, off-curve, and low-order points
   static bool isValidPoint(MontgomeryPoint P) {
-    // Check 1: not infinity
     if (P.isInfinity) return false;
-
-    // Check 2: coordinates in valid range (0 < x < p)
     if (P.x <= BigInt.zero || P.x >= p) return false;
-    if (P.y <= BigInt.zero || P.y >= p) return false;
-
-    // Check 3: point lies on curve y² = x³ + Ax² + x
+    if (P.y < BigInt.zero || P.y >= p) return false;
     if (!isOnCurve(P)) return false;
-
-    // Check 4: reject low-order points (small subgroup attack prevention)
     if (P.x == _lowOrderX2) return false;
     if (P.x == _lowOrderX4) return false;
-
     return true;
   }
 
-  // Scalar blinding: k' = k + r*n
-  // Protects private key from timing attacks via randomized scalar
-  // Result: ladderXOnly(k', P) == ladderXOnly(k, P) since r*n*G = infinity
+  // Negation: -(x, y) = (x, -y). Infinity maps to infinity.
+  static MontgomeryPoint negate(MontgomeryPoint P) {
+    if (P.isInfinity) return MontgomeryPoint.infinity();
+    return MontgomeryPoint(P.x, FieldElement.sub(BigInt.zero, P.y));
+  }
+
+  // Recover a y-coordinate from x using y = rhs^((p + 1) / 4).
+  // Returns null when x is out of range or rhs is not a square.
+  // Note: x = 0 is valid and yields y = 0 (the order-2 point).
+  static BigInt? yFromX(BigInt x) {
+    if (x < BigInt.zero || x >= p) return null;
+
+    final rhs = curveRhs(x);
+    if (rhs == BigInt.zero) return BigInt.zero;
+
+    final exp = (p + BigInt.one) >> 2;
+    final y = FieldElement.pow(rhs, exp);
+    if (FieldElement.mul(y, y) != rhs) return null;
+    return y;
+  }
+
+  // Decode an x-coordinate into a full point.
+  // By default the canonical even-y representative is returned.
+  static MontgomeryPoint? pointFromX(BigInt x, {bool evenY = true}) {
+    if (x <= BigInt.zero || x >= p) return null;
+
+    var y = yFromX(x);
+    if (y == null) return null;
+
+    if (y != BigInt.zero && y.isEven != evenY) {
+      y = FieldElement.sub(BigInt.zero, y);
+    }
+
+    return MontgomeryPoint(x, y);
+  }
+
+  static bool pointsEqual(MontgomeryPoint a, MontgomeryPoint b) {
+    if (a.isInfinity || b.isInfinity) {
+      return a.isInfinity && b.isInfinity;
+    }
+    return a.x == b.x && a.y == b.y;
+  }
+
+  // Scalar blinding: k' = k + r*(4n), where 4n is the full curve order.
+  // This preserves [k]P for every point on the curve.
   static BigInt blindScalar(BigInt k, BigInt r) {
-    return k + r * Curve256189Params.n;
+    return k + r * _curveOrder;
   }
 
   // Affine point addition
   static MontgomeryPoint add(MontgomeryPoint p, MontgomeryPoint q) {
     if (p.isInfinity) return q;
     if (q.isInfinity) return p;
+
     if (p.x == q.x) {
       if (p.y != q.y) return MontgomeryPoint.infinity();
       return double_(p);
@@ -113,6 +154,9 @@ class Montgomery {
   // Affine point doubling
   static MontgomeryPoint double_(MontgomeryPoint p) {
     if (p.isInfinity) return p;
+
+    // The only point with y = 0 is (0, 0), of order 2: 2P = infinity.
+    if (p.y == BigInt.zero) return MontgomeryPoint.infinity();
 
     // Slope: lambda = (3x² + 2Ax + 1) / (2y)
     final x2 = FieldElement.mul(p.x, p.x);
@@ -182,20 +226,17 @@ class Montgomery {
     return [xr, zr];
   }
 
-  // Montgomery Ladder (X-only scalar multiplication)
-  static BigInt ladderXOnly(BigInt k, BigInt xP) {
-    // Scalar blinding — new random r per call via cryptographic RNG
-    final r = BigInt.from(Random.secure().nextInt(0xFFFFFFFF));
-    final kBlind = blindScalar(k, r);
-
+  // Montgomery ladder core.
+  // Returns projective [X(kP), Z(kP), X((k+1)P), Z((k+1)P)].
+  static List<BigInt> _ladder(BigInt k, BigInt xP) {
     BigInt x0 = BigInt.one;
     BigInt z0 = BigInt.zero;
     BigInt x1 = xP;
     BigInt z1 = BigInt.one;
 
-    final int bitLen = kBlind.bitLength;
+    final int bitLen = k.bitLength;
     for (int i = bitLen - 1; i >= 0; i--) {
-      final bit = (kBlind >> i) & BigInt.one;
+      final bit = (k >> i) & BigInt.one;
       if (bit == BigInt.zero) {
         final xAdd = _xADD(x0, z0, x1, z1, xP);
         final xDbl = _xDBL(x0, z0);
@@ -213,70 +254,194 @@ class Montgomery {
       }
     }
 
-    return FieldElement.mul(x0, FieldElement.inv(z0));
+    return [x0, z0, x1, z1];
   }
 
-  // Montgomery Ladder — returns [x_kP, x_(k+1)P] for Okeya-Sakurai y-recovery
-  // Note: no scalar blinding here — blinding breaks x_(k+1)P consistency
-  // Security: called only from TwistedEdwards.scalarMul with internal k
-  static List<BigInt?> ladderXWithNext(BigInt k, BigInt xP) {
-    BigInt x0 = BigInt.one;
-    BigInt z0 = BigInt.zero;
-    BigInt x1 = xP;
-    BigInt z1 = BigInt.one;
-
-    final int bitLen = k.bitLength;
-    for (int i = bitLen - 1; i >= 0; i--) {
-      final bit = (k >> i) & BigInt.one;
-      if (bit == BigInt.zero) {
-        final xAdd = _xADD(x0, z0, x1, z1, xP);
-        final xDbl = _xDBL(x0, z0);
-        x1 = xAdd[0]; z1 = xAdd[1];
-        x0 = xDbl[0]; z0 = xDbl[1];
-      } else {
-        final xAdd = _xADD(x0, z0, x1, z1, xP);
-        final xDbl = _xDBL(x1, z1);
-        x0 = xAdd[0]; z0 = xAdd[1];
-        x1 = xDbl[0]; z1 = xDbl[1];
-      }
+  // Montgomery Ladder (X-only scalar multiplication).
+  // Returns null when the result is the point at infinity, and x = 0 when
+  // the result is the order-2 point (0, 0).
+  //
+  // Blinding adds a random multiple of the full curve order, so the result is
+  // unchanged for every point on the curve.
+  static BigInt? ladderXOnly(BigInt k, BigInt xP, {bool blind = true}) {
+    if (k < BigInt.zero) {
+      throw ArgumentError('ladderXOnly requires a non-negative scalar');
     }
+    if (xP < BigInt.zero || xP >= p) return null;
 
-    final xR    = z0 != BigInt.zero ? FieldElement.mul(x0, FieldElement.inv(z0)) : null;
-    final xNext = z1 != BigInt.zero ? FieldElement.mul(x1, FieldElement.inv(z1)) : null;
+    final kBlind = blind
+        ? blindScalar(k, BigInt.from(Random.secure().nextInt(0xFFFFFFFF)))
+        : k;
+
+    final result = _ladder(kBlind, xP);
+    final x = result[0];
+    final z = result[1];
+
+    if (z == BigInt.zero) return null;
+    return FieldElement.mul(x, FieldElement.inv(z));
+  }
+
+  // Montgomery Ladder — returns [x_kP, x_(k+1)P] for Okeya-Sakurai
+  // y-recovery. Either element is null when the corresponding x-coordinate
+  // is undefined (point at infinity).
+  //
+  // Blinding uses a multiple of the full curve order and is valid for every
+  // point on the curve.
+  static List<BigInt?> ladderXWithNext(
+    BigInt k,
+    BigInt xP, {
+    bool blind = false,
+  }) {
+    if (k < BigInt.zero) {
+      throw ArgumentError('ladderXWithNext requires a non-negative scalar');
+    }
+    if (xP < BigInt.zero || xP >= p) return [null, null];
+
+    final kBlind = blind
+        ? blindScalar(k, BigInt.from(Random.secure().nextInt(0xFFFFFFFF)))
+        : k;
+
+    final result = _ladder(kBlind, xP);
+    final x0 = result[0];
+    final z0 = result[1];
+    final x1 = result[2];
+    final z1 = result[3];
+
+    final xR =
+        z0 != BigInt.zero ? FieldElement.mul(x0, FieldElement.inv(z0)) : null;
+    final xNext =
+        z1 != BigInt.zero ? FieldElement.mul(x1, FieldElement.inv(z1)) : null;
     return [xR, xNext];
   }
 
-  // Scalar multiplication with Y-recovery
-  static MontgomeryPoint scalarMul(BigInt k, MontgomeryPoint p) {
+  // Double-and-add fallback using full affine arithmetic.
+  static MontgomeryPoint _doubleAndAdd(BigInt k, MontgomeryPoint p) {
+    MontgomeryPoint result = MontgomeryPoint.infinity();
+    MontgomeryPoint addend = p;
+    BigInt scalar = k;
+
+    while (scalar > BigInt.zero) {
+      if (scalar.isOdd) {
+        result = add(result, addend);
+      }
+      addend = double_(addend);
+      scalar = scalar >> 1;
+    }
+    return result;
+  }
+
+  // Full-point scalar multiplication with y-recovery (Okeya-Sakurai 2001).
+  //
+  // The Montgomery ladder only yields the x-coordinate. The companion point
+  // x_(k+1)P lets us recover the correct y (not merely a canonical one):
+  //
+  //   y_R = ((xP*xR + 1)*(xP + xR + 2A) - 2A - (xP - xR)²*xNext) / (2*yP)
+  //
+  // A double-and-add fallback is used for exceptional inputs.
+  static MontgomeryPoint scalarMulFull(
+    BigInt k,
+    MontgomeryPoint p, {
+    bool blind = false,
+  }) {
     if (p.isInfinity) return MontgomeryPoint.infinity();
+    if (!isOnCurve(p)) {
+      throw ArgumentError('scalarMulFull requires a point on the curve');
+    }
     if (k == BigInt.zero) return MontgomeryPoint.infinity();
-
-    // Step 1: Ladder x-only
-    final xR = ladderXOnly(k, p.x);
-    if (xR == BigInt.zero) return MontgomeryPoint.infinity();
-
-    // Step 2: Recover y from y² = x³ + Ax² + x
-    final x2 = FieldElement.mul(xR, xR);
-    final x3 = FieldElement.mul(xR, x2);
-    final rhs = FieldElement.add(
-      FieldElement.add(x3, FieldElement.mul(A, x2)),
-      xR,
-    );
-
-    // Quadratic residue: y = rhs^((p+1)/4)
-    final exp = (Montgomery.p + BigInt.one) >> 2;
-    var yR = FieldElement.pow(rhs, exp);
-
-    // Verify y coordinate validity
-    if (FieldElement.mul(yR, yR) != rhs) {
-      return MontgomeryPoint.infinity();
+    if (k < BigInt.zero) {
+      return negate(scalarMulFull(-k, p, blind: blind));
     }
 
-    // Canonical form: Y-parity control
-    if (yR.isOdd) {
-      yR = FieldElement.sub(BigInt.zero, yR);
+    // (0, 0) is the order-2 point and cannot be handled by the ladder.
+    if (p.y == BigInt.zero) {
+      return k.isOdd ? p : MontgomeryPoint.infinity();
     }
 
-    return MontgomeryPoint(xR, yR);
+    if (blind) {
+      k += BigInt.from(Random.secure().nextInt(0xFFFFFFFF)) * _curveOrder;
+    }
+
+    final pair = ladderXWithNext(k, p.x);
+    final xR = pair[0];
+    final xNext = pair[1];
+
+    if (xR == null) return MontgomeryPoint.infinity();
+
+    final rhs = curveRhs(xR);
+
+    if (xNext != null) {
+      final term1 = FieldElement.add(FieldElement.mul(p.x, xR), BigInt.one);
+      final term2 = FieldElement.add(
+        FieldElement.add(p.x, xR),
+        FieldElement.mul(BigInt.two, A),
+      );
+      final prod = FieldElement.mul(term1, term2);
+      final term3 = FieldElement.mul(BigInt.two, A);
+      final diff = FieldElement.sub(p.x, xR);
+      final diff2 = FieldElement.mul(diff, diff);
+      final term4 = FieldElement.mul(diff2, xNext);
+      final numer = FieldElement.sub(FieldElement.sub(prod, term3), term4);
+      final denom = FieldElement.mul(BigInt.two, p.y);
+      final yR = FieldElement.mul(numer, FieldElement.inv(denom));
+
+      if (FieldElement.mul(yR, yR) == rhs) {
+        return MontgomeryPoint(xR, yR);
+      }
+    }
+
+    return _doubleAndAdd(k, p);
+  }
+
+  // Backwards-compatible alias for full-point scalar multiplication.
+  static MontgomeryPoint scalarMul(BigInt k, MontgomeryPoint p) {
+    return scalarMulFull(k, p);
+  }
+
+  // True iff P is a non-identity point of the prime-order subgroup.
+  static bool isInPrimeOrderSubgroup(MontgomeryPoint P) {
+    if (P.isInfinity) return false;
+    if (P.x <= BigInt.zero || P.x >= p) return false;
+    if (P.y < BigInt.zero || P.y >= p) return false;
+    if (!isOnCurve(P)) return false;
+
+    // No blinding here: P is not assumed to be in the prime-order subgroup.
+    final nP = scalarMulFull(_n, P, blind: false);
+    return nP.isInfinity;
+  }
+
+  // Validate a 32-byte x-only public key value.
+  // Rejects identity, low-order points, and mixed-order points.
+  static bool isValidPublicKeyX(BigInt x) {
+    final P = pointFromX(x, evenY: true);
+    if (P == null) return false;
+    return isInPrimeOrderSubgroup(P);
+  }
+
+  // Sum of scalar multiplications: sum(scalars[i] * points[i]).
+  static MontgomeryPoint multiScalarMul(
+    List<BigInt> scalars,
+    List<MontgomeryPoint> points,
+  ) {
+    if (scalars.length != points.length) {
+      throw ArgumentError('scalars and points must have the same length');
+    }
+
+    MontgomeryPoint acc = MontgomeryPoint.infinity();
+    for (int i = 0; i < scalars.length; i++) {
+      if (scalars[i] == BigInt.zero || points[i].isInfinity) continue;
+      acc = add(acc, scalarMulFull(scalars[i], points[i]));
+    }
+    return acc;
+  }
+
+  // Uniform non-zero scalar in [1, n).
+  static BigInt randomScalar() {
+    final rng = Random.secure();
+    BigInt r = BigInt.zero;
+    for (int i = 0; i < 8; i++) {
+      r = (r << 32) | BigInt.from(rng.nextInt(0x100000000));
+    }
+    r %= _n;
+    return r == BigInt.zero ? BigInt.one : r;
   }
 }

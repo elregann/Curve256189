@@ -13,7 +13,8 @@ void main() {
   print('');
 
   final p = Curve256189Params.p;
-  final exp = (p + BigInt.one) >> 2;  // Exponent for square root computation when p ≡ 3 mod 4
+  final exp = (p + BigInt.one) >>
+      2; // Exponent for square root computation when p ≡ 3 mod 4
 
   print('Curve parameters:');
   print('  p = $p');

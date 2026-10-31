@@ -38,7 +38,8 @@ void main() {
 
   // Test case 5: Verify that approximately 50% of points have no Elligator representation
   print('');
-  print('Test 5 - Approximately 50% of points have no Elligator representation?');
+  print(
+      'Test 5 - Approximately 50% of points have no Elligator representation?');
   int canDecode = 0;
   int cannot = 0;
   for (int i = 1; i <= 100; i++) {
@@ -48,8 +49,10 @@ void main() {
     // Attempt to decode a slightly modified x
     final xMod = x + BigInt.from(i * 7);
     final t = Elligator.decode(xMod);
-    if (t != null) canDecode++;
-    else cannot++;
+    if (t != null)
+      canDecode++;
+    else
+      cannot++;
   }
   print('  can decode: $canDecode');
   print('  cannot decode: $cannot');
@@ -71,7 +74,10 @@ void main() {
     final rhs = (x3 + A * x2 + x) % p;
     final exp = (p + BigInt.one) >> 2;
     final y = rhs.modPow(exp, p);
-    if ((y * y) % p != rhs) { allOnCurve = false; break; }
+    if ((y * y) % p != rhs) {
+      allOnCurve = false;
+      break;
+    }
   }
   print('  all points on curve? $allOnCurve');
 

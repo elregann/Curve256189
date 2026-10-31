@@ -33,7 +33,7 @@ void main() {
   // Generate Alice's key pair
   final aliceSeed = Uint8List.fromList(List.generate(
     32,
-        (i) => (0x01 + i) % 256,
+    (i) => (0x01 + i) % 256,
   ));
   final aliceKP = X256189.generateKeyPair(aliceSeed);
   final alicePrivateKey = aliceKP['privateKey']!;
@@ -46,7 +46,7 @@ void main() {
   // Generate Bob's key pair
   final bobSeed = Uint8List.fromList(List.generate(
     32,
-        (i) => (0x21 + i) % 256,
+    (i) => (0x21 + i) % 256,
   ));
   final bobKP = X256189.generateKeyPair(bobSeed);
   final bobPrivateKey = bobKP['privateKey']!;
@@ -163,7 +163,7 @@ void main() {
 
   // Bob uses his derived key to decrypt (must match Alice's via HKDF)
   final bobAesKey = HKDF.derive(
-    ikm: bobSharedSecret,  // Bob's shared secret
+    ikm: bobSharedSecret, // Bob's shared secret
     info: Uint8List.fromList('curve256189-aes-key'.codeUnits),
     length: 32,
   );
@@ -235,7 +235,7 @@ void main() {
   // Attempt 5b: Tampering is detected
   print('Scenario 5b: Attacker tampers with the ciphertext');
   final tamperedCiphertext = Uint8List.fromList(encryptionResult.ciphertext);
-  tamperedCiphertext[0] ^= 0xFF;  // Flip 8 bits
+  tamperedCiphertext[0] ^= 0xFF; // Flip 8 bits
 
   final tamperingDetected = AESGCM.decrypt(
     key: aesKey,

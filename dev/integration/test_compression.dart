@@ -12,7 +12,8 @@ void main() {
 
   print('Test 1 - Encode G:');
   final encoded = TwistedEdwards.encodePoint(G_ed);
-  print('  Encoded: ${encoded.map((b) => b.toRadixString(16).padLeft(2, '0')).join()}');
+  print(
+      '  Encoded: ${encoded.map((b) => b.toRadixString(16).padLeft(2, '0')).join()}');
   print('  Length: ${encoded.length} bytes');
   print('');
 
