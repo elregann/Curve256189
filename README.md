@@ -257,7 +257,7 @@ dart dev/unit/test_x256189.dart
 
 ## Implementation Notes
 
-- **No `BigInt.modPow`:** Dart's `BigInt.modPow` has a known defect for 256-bit exponents. All modular exponentiation therefore uses a square-and-multiply implementation in `FieldElement.pow()`, verified by `dev/integration/test_modpow.dart`.
+- **Modular exponentiation:** `FieldElement.pow()` wraps Dart's `BigInt.modPow`. Every exponent used in the library is a public constant (such as `(p + 1) / 4`), so its variable timing does not depend on secrets. `dev/integration/test_modpow.dart` cross-checks it against an independent square-and-multiply reference on 20000 random inputs and pins the Elligator 2 test vectors.
 - **Okeya-Sakurai y-recovery:** `Montgomery.scalarMulFull` uses the Okeya-Sakurai (2001) formula to recover a full point from the x-only ladder. The `[k+1]P = O` case is handled directly, and a double-and-add fallback covers any remaining degenerate input. Scalar blinding adds a random 64-bit multiple of `4n`, so it is correct for low-order and mixed-order points as well.
 - **x-only signatures:** XEdDSA avoids Edwards addition entirely. Signing and verification canonicalise `P` and `R` to the even-`y` representative and check the exact full-point equation `[s]G == R + [h]P`, so variants such as `(x(R), n - s)` or a sign-flipped `R` cannot be accepted.
 - **Strict validation:** signatures must be exactly 64 bytes, `s < n`, and both `R` and `P` must decode to canonical even-`y` points in the prime-order subgroup. Low-order and mixed-order public keys are rejected.

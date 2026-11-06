@@ -1,9 +1,9 @@
 // test_modpow.dart
 
+import 'dart:math';
 import 'package:curve256189/curve256189.dart';
 
-// Reference implementation of modular exponentiation for comparison.
-BigInt modPowSafe(BigInt base, BigInt exp, BigInt mod) {
+BigInt referencePow(BigInt base, BigInt exp, BigInt mod) {
   BigInt result = BigInt.one;
   base = base % mod;
   while (exp > BigInt.zero) {
@@ -14,100 +14,62 @@ BigInt modPowSafe(BigInt base, BigInt exp, BigInt mod) {
   return result;
 }
 
+BigInt randomBits(Random rng, int bits) {
+  var v = BigInt.zero;
+  for (var i = 0; i < bits; i += 32) {
+    v = (v << 32) | BigInt.from(rng.nextInt(0x100000000));
+  }
+  return v & ((BigInt.one << bits) - BigInt.one);
+}
+
+void expect(bool condition, String message) {
+  if (!condition) throw StateError('FAILED: $message');
+}
+
 void main() {
-  print('=== Audit: modPow in Curve256189 ===');
+  print('=== Test: FieldElement.pow vs reference square and multiply ===');
 
   final p = Curve256189Params.p;
-  final A = Curve256189Params.A;
-  final exp = (p + BigInt.one) >> 2; // Exponent for square root computation
+  final rng = Random(189);
+  final exps = [(p + BigInt.one) >> 2, p - BigInt.two, (p - BigInt.one) >> 1];
 
-  // Test case 1: Square root in Montgomery scalarMul (right-hand side of 2G)
-  print('');
-  print('Test 1 - Square root in Montgomery scalarMul (rhs of 2G):');
-  final G = MontgomeryPoint.G;
-  final xR = Montgomery.ladderXOnly(BigInt.two, G.x, blind: false)!;
-  final x2 = FieldElement.mul(xR, xR);
-  final x3 = FieldElement.mul(xR, x2);
-  final rhs = FieldElement.add(
-    FieldElement.add(x3, FieldElement.mul(A, x2)),
-    xR,
-  );
-  final y_modpow = rhs.modPow(exp, p);
-  final y_safe = modPowSafe(rhs, exp, p);
-  print('  equal?              = ${y_modpow == y_safe}');
-  print(
-      '  modPow verification = ${FieldElement.mul(y_modpow, y_modpow) == rhs}');
-  print('  safe verification   = ${FieldElement.mul(y_safe, y_safe) == rhs}');
+  var total = 0;
+  for (var i = 0; i < 20000; i++) {
+    final base = randomBits(rng, 256) % p;
+    final e = i < 15000 ? exps[i % 3] : randomBits(rng, 256);
+    expect(
+      FieldElement.pow(base, e) == referencePow(base, e, p),
+      'pow mismatch base=$base exp=$e',
+    );
+    total++;
+  }
+  print('  $total random cases match');
 
-  // Test case 2: Square root in Edwards decodePoint (x^2 from G.y)
-  print('');
-  print('Test 2 - Square root in Edwards decodePoint (x^2 from G.y):');
-  final Ged = TwistedEdwards.fromMontgomery(G);
-  final a = FieldElement.add(A, BigInt.two);
-  final d = FieldElement.sub(A, BigInt.two);
-  final y2 = FieldElement.mul(Ged.y, Ged.y);
-  final num = FieldElement.sub(BigInt.one, y2);
-  final den = FieldElement.sub(a, FieldElement.mul(d, y2));
-  final x2ed = FieldElement.mul(num, FieldElement.inv(den));
-  final x_modpow = x2ed.modPow(exp, p);
-  final x_safe = modPowSafe(x2ed, exp, p);
-  print('  equal?              = ${x_modpow == x_safe}');
-  print(
-      '  modPow verification = ${FieldElement.mul(x_modpow, x_modpow) == x2ed}');
-  print('  safe verification   = ${FieldElement.mul(x_safe, x_safe) == x2ed}');
+  expect(FieldElement.pow(BigInt.zero, BigInt.zero) == BigInt.one, '0^0');
+  expect(FieldElement.pow(BigInt.two, BigInt.zero) == BigInt.one, '2^0');
+  expect(FieldElement.pow(p + BigInt.two, BigInt.one) == BigInt.two, 'a >= p');
+  expect(FieldElement.pow(-BigInt.one, BigInt.two) == BigInt.one, 'a < 0');
+  var threw = false;
+  try {
+    FieldElement.pow(BigInt.two, -BigInt.one);
+  } on ArgumentError {
+    threw = true;
+  }
+  expect(threw, 'negative exponent must throw');
+  print('  edge cases ok');
 
-  // Test case 3: Square root with a known problematic large value
-  print('');
-  print('Test 3 - Square root with a known problematic large value:');
-  final bigVal = BigInt.parse(
-      '77194726158210796949047323339125271902179989777093709359638389338608752933299');
-  final sq = FieldElement.mul(bigVal, bigVal);
-  final sq_modpow = sq.modPow(exp, p);
-  final sq_safe = modPowSafe(sq, exp, p);
-  print('  equal?              = ${sq_modpow == sq_safe}');
-  print(
-      '  modPow verification = ${FieldElement.mul(sq_modpow, sq_modpow) == sq}');
-  print('  safe verification   = ${FieldElement.mul(sq_safe, sq_safe) == sq}');
+  print('=== Test: Elligator 2 test vectors ===');
+  final vectors = {
+    1: '38597363079105398474523661669562635951089994888546854679819194669304376226851',
+    2: '90060513851245929773888543895646150552543321406609327586244787561710211515717',
+    42: '51481379431382575976079023938405023355562653992742999427007353161920005302563',
+  };
+  vectors.forEach((t, want) {
+    final x = Elligator.encode(BigInt.from(t));
+    expect(x != null && x == BigInt.parse(want), 'encode($t) vector');
+    expect(Montgomery.yFromX(x!) != null, 'encode($t) lies on the curve');
+  });
+  print('  vectors ok');
 
-  // Test case 4: Modular inverse via modPow (exponent = p-2) compared to safe implementation
-  print('');
-  print(
-      'Test 4 - Modular inverse via modPow (exp = p-2) vs safe implementation:');
-  final testVal = BigInt.parse(
-      '77194726158210796949047323339125271902179989777093709359638389338608752453702');
-  final expInv = p - BigInt.two;
-
-  final inv_modpow = testVal.modPow(expInv, p);
-  final inv_safe = modPowSafe(testVal, expInv, p);
-  print('  equal?              = ${inv_modpow == inv_safe}');
-  print(
-      '  modPow verification = ${FieldElement.mul(testVal, inv_modpow) == BigInt.one}');
-  print(
-      '  safe verification   = ${FieldElement.mul(testVal, inv_safe) == BigInt.one}');
-
-  // Test case 5: Modular inverse with a different random value
-  print('');
-  print('Test 5 - Modular inverse with a different value:');
-  final testVal2 = BigInt.parse(
-      '64328938465175664124206102782604393251816658147578091133031991115507293391687');
-  final inv2_modpow = testVal2.modPow(expInv, p);
-  final inv2_safe = modPowSafe(testVal2, expInv, p);
-  print('  equal?              = ${inv2_modpow == inv2_safe}');
-  print(
-      '  modPow verification = ${FieldElement.mul(testVal2, inv2_modpow) == BigInt.one}');
-  print(
-      '  safe verification   = ${FieldElement.mul(testVal2, inv2_safe) == BigInt.one}');
-
-  // Test case 6: Square root for a value derived from t=2 (known problematic)
-  print('');
-  print('Test 6 - Square root for value from t=2 (known problematic):');
-  final t2_val = BigInt.parse(
-      '36185027886661311069865932815214971204146870208012676262330495002472853012421');
-  final sqrt_modpow = t2_val.modPow(exp, p);
-  final sqrt_safe = modPowSafe(t2_val, exp, p);
-  print('  equal?              = ${sqrt_modpow == sqrt_safe}');
-  print(
-      '  modPow verification = ${FieldElement.mul(sqrt_modpow, sqrt_modpow) == t2_val}');
-  print(
-      '  safe verification   = ${FieldElement.mul(sqrt_safe, sqrt_safe) == t2_val}');
+  print('All checks passed.');
 }

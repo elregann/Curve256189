@@ -23,7 +23,6 @@ class FieldElement {
 
   // Modular inversion via Extended Euclidean Algorithm.
   // Throws instead of silently returning 0 for the undefined inverse of 0.
-  // Note: Dart BigInt.modPow has precision issues for 256-bit numbers.
   static BigInt inv(BigInt a) {
     final value = ((a % p) + p) % p;
     if (value == BigInt.zero) {
@@ -44,18 +43,14 @@ class FieldElement {
     return ((oldS % p) + p) % p;
   }
 
-  // Safe modular exponentiation via square-and-multiply
-  // Replaces Dart BigInt.modPow due to precision issues with 256-bit numbers
+  // Modular exponentiation a^exp mod p via Dart's BigInt.modPow.
+  // Every exponent used in this library is a public constant, so the
+  // non constant time behaviour of modPow does not leak secrets here.
   static BigInt pow(BigInt a, BigInt exp) {
-    BigInt result = BigInt.one;
-    BigInt base = a % p;
-    BigInt e = exp;
-    while (e > BigInt.zero) {
-      if (e.isOdd) result = (result * base) % p;
-      e = e >> 1;
-      base = (base * base) % p;
+    if (exp < BigInt.zero) {
+      throw ArgumentError('FieldElement.pow requires a non-negative exponent');
     }
-    return result;
+    return (a % p).modPow(exp, p);
   }
 
   // Modular inversion with inv0(0) = 0 per RFC 9380
