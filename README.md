@@ -246,6 +246,7 @@ dart dev/unit/test_blinding.dart
 dart dev/unit/test_xeddsa.dart
 dart dev/unit/test_edwards.dart
 dart dev/unit/test_elligator.dart
+dart dev/unit/test_elligator_exceptional.dart
 dart dev/unit/test_field.dart
 dart dev/unit/test_hkdf.dart
 dart dev/unit/test_montgomery.dart
@@ -257,7 +258,7 @@ dart dev/unit/test_x256189.dart
 
 ## Implementation Notes
 
-- **Modular exponentiation:** `FieldElement.pow()` wraps Dart's `BigInt.modPow`. Every exponent used in the library is a public constant (such as `(p + 1) / 4`), so its variable timing does not depend on secrets. `dev/integration/test_modpow.dart` cross-checks it against an independent square-and-multiply reference on 20000 random inputs and pins the Elligator 2 test vectors.
+- **No `BigInt.modPow`:** Dart's `BigInt.modPow` returns wrong results for some structured 256-bit inputs, for example base `p - 1` or `(p - 1) / 2` (2253 of 5904 structured cases failed on one Dart SDK). Random inputs rarely trigger it. All modular exponentiation therefore uses the square-and-multiply implementation in `FieldElement.pow()`, which `dev/integration/test_modpow.dart` checks against known answers on structured and random inputs. Every exponent used in the library is a public constant, so branching on its bits does not leak secrets.
 - **Okeya-Sakurai y-recovery:** `Montgomery.scalarMulFull` uses the Okeya-Sakurai (2001) formula to recover a full point from the x-only ladder. The `[k+1]P = O` case is handled directly, and a double-and-add fallback covers any remaining degenerate input. Scalar blinding adds a random 64-bit multiple of `4n`, so it is correct for low-order and mixed-order points as well.
 - **x-only signatures:** XEdDSA avoids Edwards addition entirely. Signing and verification canonicalise `P` and `R` to the even-`y` representative and check the exact full-point equation `[s]G == R + [h]P`, so variants such as `(x(R), n - s)` or a sign-flipped `R` cannot be accepted.
 - **Strict validation:** signatures must be exactly 64 bytes, `s < n`, and both `R` and `P` must decode to canonical even-`y` points in the prime-order subgroup. Low-order and mixed-order public keys are rejected.
@@ -298,4 +299,3 @@ MIT License. See [LICENSE](LICENSE).
 - [RFC 9380](https://www.rfc-editor.org/rfc/rfc9380): Hashing to Elliptic Curves (Elligator 2)
 - [RFC 5869](https://www.rfc-editor.org/rfc/rfc5869): HKDF
 - [NIST SP 800-38D](https://csrc.nist.gov/publications/detail/sp/800-38d/final): AES-GCM
-- [Patarin 1996](https://link.springer.com/chapter/10.1007/3-540-68339-9_4): Hidden Field Equations (HFE)

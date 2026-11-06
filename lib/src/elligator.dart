@@ -21,10 +21,12 @@ class Elligator {
     final t2 = FieldElement.mul(t, t);
     final denom = FieldElement.add(BigInt.one, FieldElement.mul(u, t2));
 
-    final x1 = FieldElement.mul(
+    var x1 = FieldElement.mul(
       FieldElement.sub(BigInt.zero, A),
       FieldElement.inv0(denom),
     );
+    // RFC 9380 section 6.7.1: when 1 + u*t² == 0, x1 is defined as -A
+    if (x1 == BigInt.zero) x1 = FieldElement.sub(BigInt.zero, A);
     // x2 = -x1 - A
     final x2 = FieldElement.sub(FieldElement.sub(BigInt.zero, x1), A);
 
@@ -37,12 +39,17 @@ class Elligator {
   }
 
   static BigInt? decode(BigInt x) {
-    // t² = -(x + A) / (u * x)
-    final num = FieldElement.sub(BigInt.zero, FieldElement.add(x, A));
-    final den = FieldElement.mul(u, x);
-    if (den == BigInt.zero) return null;
-
-    final t2 = FieldElement.mul(num, FieldElement.inv(den));
+    final BigInt t2;
+    if (x == FieldElement.sub(BigInt.zero, A)) {
+      // Exceptional point reached from 1 + u*t² == 0, so t² = -1 / u
+      t2 = FieldElement.sub(BigInt.zero, FieldElement.inv(u));
+    } else {
+      // t² = -(x + A) / (u * x)
+      final num = FieldElement.sub(BigInt.zero, FieldElement.add(x, A));
+      final den = FieldElement.mul(u, x);
+      if (den == BigInt.zero) return null;
+      t2 = FieldElement.mul(num, FieldElement.inv(den));
+    }
 
     // Square root: t = t²^((p+1)/4)
     final exp = (p + BigInt.one) >> 2;

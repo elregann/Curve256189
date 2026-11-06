@@ -1,9 +1,9 @@
 name: curve256189
 
 description: >
-  Curve256189: SafeCurves-compliant (11/11) Montgomery elliptic curve 
-  with novel FPOW post-quantum hardening layer. Formally verified via SageMath. 
-  Production-ready Dart cryptography library.
+  Curve256189: SafeCurves-compliant (11/11) Montgomery elliptic curve
+  with X256189 ECDH, XEdDSA signatures, Elligator 2, HKDF and AES-GCM.
+  Pure Dart cryptography library.
 
 version: 1.0.0-beta.3
 
@@ -18,8 +18,6 @@ keywords:
   - ecc
   - elliptic-curve
   - safecurves
-  - post-quantum
-  - fpow
   - montgomery-curve
   - xeddsa
   - schnorr

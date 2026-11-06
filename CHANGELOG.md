@@ -1,3 +1,17 @@
+## Unreleased
+
+- Elligator 2 `encode` now follows RFC 9380 section 6.7.1 when
+  `1 + 2t² = 0`: `x1` is set to `-A` instead of `0`, so the two affected
+  inputs no longer map to the order-2 point. `decode` maps `x = -A` back to
+  the matching `t`.
+- `FieldElement.pow` keeps its own square and multiply implementation because
+  Dart's `BigInt.modPow` returns wrong results for some structured inputs
+  (for example base `p - 1`). `Elligator` now reuses `FieldElement.pow` and
+  `Montgomery.curveRhs` instead of private duplicates. `test_modpow.dart`
+  covers structured inputs with known answers.
+- Removed the FPOW claim from the changelog and package metadata. It is not
+  part of this library.
+
 ## 1.0.0-beta.3
 
 - Hardened the Montgomery ladder with an arithmetic conditional swap and a
@@ -32,6 +46,5 @@
 
 - Initial release of Curve256189.
 - Verified SafeCurves compliance (11/11 criteria).
-- Implementation of FPOW (Fixed-Point One-Way Wrap) for scalar hardening.
 - Support for ECDH (X256189) and EdDSA signatures.
 - Elligator 2 point encoding and HKDF integration.

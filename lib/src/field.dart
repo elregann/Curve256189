@@ -43,14 +43,24 @@ class FieldElement {
     return ((oldS % p) + p) % p;
   }
 
-  // Modular exponentiation a^exp mod p via Dart's BigInt.modPow.
-  // Every exponent used in this library is a public constant, so the
-  // non constant time behaviour of modPow does not leak secrets here.
+  // Modular exponentiation a^exp mod p via square and multiply.
+  // Dart's BigInt.modPow returns wrong results for some 256 bit inputs, for
+  // example base p minus 1 or (p minus 1) / 2, so it must not be used here.
+  // See dev/integration/test_modpow.dart. Every exponent used in this library
+  // is a public constant, so branching on its bits does not leak secrets.
   static BigInt pow(BigInt a, BigInt exp) {
     if (exp < BigInt.zero) {
       throw ArgumentError('FieldElement.pow requires a non-negative exponent');
     }
-    return (a % p).modPow(exp, p);
+    BigInt result = BigInt.one;
+    BigInt base = a % p;
+    BigInt e = exp;
+    while (e > BigInt.zero) {
+      if (e.isOdd) result = (result * base) % p;
+      e = e >> 1;
+      base = (base * base) % p;
+    }
+    return result;
   }
 
   // Modular inversion with inv0(0) = 0 per RFC 9380

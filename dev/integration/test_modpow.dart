@@ -27,12 +27,46 @@ void expect(bool condition, String message) {
 }
 
 void main() {
-  print('=== Test: FieldElement.pow vs reference square and multiply ===');
-
   final p = Curve256189Params.p;
-  final rng = Random(189);
-  final exps = [(p + BigInt.one) >> 2, p - BigInt.two, (p - BigInt.one) >> 1];
+  final half = (p - BigInt.one) >> 1;
+  final sqrtExp = (p + BigInt.one) >> 2;
+  final exps = [sqrtExp, p - BigInt.two, half];
 
+  print('=== Test: known answers ===');
+  expect(FieldElement.pow(p - BigInt.one, half) == p - BigInt.one, '(p-1)^half');
+  expect(FieldElement.pow(half + BigInt.one, p - BigInt.two) == BigInt.two,
+      '(half+1)^(p-2) == 2');
+  expect(FieldElement.pow(p - BigInt.one, p - BigInt.two) == p - BigInt.one,
+      '(p-1)^(p-2)');
+  final rootOfHalf = FieldElement.pow(half, sqrtExp);
+  expect(FieldElement.mul(rootOfHalf, rootOfHalf) == half, 'sqrt(half)');
+  print('  known answers ok');
+
+  print('=== Test: structured inputs vs reference ===');
+  final bases = <BigInt>[];
+  for (var k = 0; k < 300; k++) {
+    final bk = BigInt.from(k);
+    bases.addAll([bk, p - bk, half + bk, half - bk]);
+  }
+  for (var s = 0; s < 256; s++) {
+    final b = BigInt.one << s;
+    bases.addAll([b % p, (b - BigInt.one) % p, (b + BigInt.one) % p]);
+  }
+  var structured = 0;
+  var dartModPowWrong = 0;
+  for (final b in bases) {
+    for (final e in exps) {
+      final want = referencePow(b, e, p);
+      expect(FieldElement.pow(b, e) == want, 'pow mismatch base=$b exp=$e');
+      if (b.modPow(e, p) != want) dartModPowWrong++;
+      structured++;
+    }
+  }
+  print('  $structured structured cases match');
+  print('  informational: Dart BigInt.modPow was wrong on $dartModPowWrong');
+
+  print('=== Test: random inputs vs reference ===');
+  final rng = Random(189);
   var total = 0;
   for (var i = 0; i < 20000; i++) {
     final base = randomBits(rng, 256) % p;
@@ -45,6 +79,7 @@ void main() {
   }
   print('  $total random cases match');
 
+  print('=== Test: edge cases ===');
   expect(FieldElement.pow(BigInt.zero, BigInt.zero) == BigInt.one, '0^0');
   expect(FieldElement.pow(BigInt.two, BigInt.zero) == BigInt.one, '2^0');
   expect(FieldElement.pow(p + BigInt.two, BigInt.one) == BigInt.two, 'a >= p');
