@@ -1,3 +1,55 @@
+## 1.0.0-beta.5
+
+- **New `Ed256189` signature scheme.** EdDSA for Curve256189 on the complete
+  dual twisted Edwards model `E_{d,a}`. RFC 8032 requires a square `a` and a
+  non-square `d`; Curve256189's natural model has the opposite, so Ed256189
+  uses the isomorphic dual model and the generator `B = Phi(G)`. Public keys
+  are 33 bytes (`LE(v, 32) || parity(u)`) and signatures are 65 bytes
+  (`R || S`) because `p` is a full 256-bit prime and `S < n < 2^254`.
+- Ed256189 key derivation follows RFC 8032: `SHA-512(seed)`, split into a
+  32-byte scalar and a 32-byte prefix, with cofactor-4 pruning (clear bits
+  0–1, clear bit 255, set bit 254). The scalar is not reduced modulo `n`
+  and not multiplied by 4, so Ed256189 keys are independent of X256189 and
+  XEdDSA keys derived from the same seed.
+- Ed256189 signing uses a deterministic, domain-separated nonce
+  `SHA-512("Curve256189-Ed256189-v1" || 0x01 || prefix || counter || M) mod n`
+  with a 4-byte little-endian counter retried only if `r = 0`, and a
+  domain-separated challenge
+  `SHA-512(domain || 0x02 || R || A || M) mod n`. The signature scalar is
+  `S = r + k*s mod n`.
+- Ed256189 verification is strict: exact lengths, canonical point encodings,
+  canonical `S < n`, non-identity prime-order subgroup checks for both `R`
+  and `A`, and the exact equation `[S]B == R + [k]A` (no cofactor
+  multiplication). Malformed inputs return `false` and never throw.
+- **Added `DualEdwards` encoding helpers:** `encodePoint`, `decodePoint`
+  (33-byte `v || parity(u)`, rejecting `v >= p`, parity bytes other than
+  0/1, non-square `u²`, and an odd parity for `u = 0`), and
+  `isInPrimeOrderSubgroup` (rejects identity, order-2, order-4, and
+  mixed-order points). `DualEdwards.scalarMul` gained an optional `blind`
+  flag for secret scalars.
+- **Added an independent Python reference and vector generator:**
+  `tool/ed256189_vectors.py`, which shares no code with the Dart package and
+  emits 16 known-answer vectors (4 seeds × 4 messages) to
+  `test/ed256189_vectors.dart`. The Dart implementation matches all of them.
+- **Added tests:** `test/eddsa256189_test.dart` covers the parameter set,
+  generator, point encoding and decoding edge cases, subgroup validation, key
+  derivation, all vectors, determinism, malformed signatures and keys, and
+  protocol separation from XEdDSA. Randomised Ed256189 and `DualEdwards`
+  round-trips were added to `test/stress_test.dart` (tag `slow`).
+- **Added `doc/ed256189.md`:** full specification of the parameters, wire
+  format, key derivation, nonce and challenge, signing, verification, edge
+  cases, security notes, and every deliberate deviation from RFC 8032
+  (including the 33/65-byte formats, `b = 264` point encoding, 32-byte `S`,
+  SHA-512 output size, explicit domain tags, nonce counter retry, strict
+  non-cofactored verification, and the absent ctx/ph variants).
+- **`XEdDSA` is now marked superseded** by Ed256189. Its behaviour, wire
+  format, test vectors, and `BatchVerify` are unchanged in this release; it
+  will be removed in a future major release. Ed256189 and XEdDSA are not
+  wire-compatible and do not share keys.
+- Docs: README updated with the Ed256189 component, security properties,
+  usage example, vectors, scheme summary, test file, and RFC 8032 reference.
+- Version bumped to `1.0.0-beta.5`.
+
 ## 1.0.0-beta.4
 
 - Edwards: added `DualEdwards`, the complete twisted Edwards model

@@ -387,6 +387,57 @@ class DualEdwards {
   }
 
   // ---------------------------------------------------------------------
+  // Point compression: 32 bytes V || 1 byte U-parity
+  // ---------------------------------------------------------------------
+
+  // The dual model is the signature curve for Ed256189. Its encoding keeps
+  // the sign of u in a separate byte because p is a full 256-bit prime and
+  // leaves no spare bit in the 32-byte field element.
+  static Uint8List encodePoint(EdwardsPoint P) {
+    final vBytes = TwistedEdwards._bigIntToBytes(P.y);
+    final signByte = P.x.isOdd ? 1 : 0;
+    return Uint8List.fromList([...vBytes, signByte]);
+  }
+
+  // Point decompression: recovery of U from compressed V and parity.
+  // Returns null for malformed or non-canonical encodings.
+  static EdwardsPoint? decodePoint(Uint8List bytes) {
+    if (bytes.length != 33) return null;
+
+    // Unlike the natural-model decoder, reject any parity byte other than
+    // 0 or 1: the Ed256189 encoding has exactly one valid sign value.
+    final signU = bytes[32];
+    if (signU > 1) return null;
+
+    final v = TwistedEdwards._bytesToBigInt(bytes.sublist(0, 32));
+    if (v >= p) return null;
+
+    // u² = (1 - v²) / (a - d v²)
+    final v2 = FieldElement.mul(v, v);
+    final denominator = FieldElement.sub(a, FieldElement.mul(d, v2));
+    if (denominator == BigInt.zero) return null;
+
+    final numerator = FieldElement.sub(BigInt.one, v2);
+    final u2 = FieldElement.mul(numerator, FieldElement.inv(denominator));
+
+    // p = 3 (mod 4), so a square root is u²^((p+1)/4).
+    final exp = (p + BigInt.one) >> 2;
+    var u = FieldElement.pow(u2, exp);
+    if (FieldElement.mul(u, u) != u2) return null;
+
+    if (u == BigInt.zero) {
+      // The point (0, v) is its own negative; there is no odd representative.
+      if (signU == 1) return null;
+    } else if (u.isOdd != (signU == 1)) {
+      u = FieldElement.sub(BigInt.zero, u);
+    }
+
+    final point = EdwardsPoint(u, v);
+    if (!isOnCurve(point)) return null;
+    return point;
+  }
+
+  // ---------------------------------------------------------------------
   // Complete group law
   // ---------------------------------------------------------------------
 
@@ -443,17 +494,39 @@ class DualEdwards {
 
   // Scalar multiplication routed through full-point Montgomery arithmetic.
   // This handles the order-4 points of E_{d,a} (which have v = 0) as well.
-  static EdwardsPoint scalarMul(BigInt k, EdwardsPoint P) {
+  //
+  // Set [blind] for secret scalars: the Montgomery layer then adds a random
+  // multiple of the full curve order, which preserves the result while
+  // keeping the ladder's execution independent of the scalar value.
+  static EdwardsPoint scalarMul(BigInt k, EdwardsPoint P,
+      {bool blind = false}) {
     if (k == BigInt.zero || P.isIdentity) return EdwardsPoint.infinity();
     if (k < BigInt.zero) {
-      return scalarMul(-k, negate(P));
+      return scalarMul(-k, negate(P), blind: blind);
     }
 
     final montP = toMontgomery(P);
     if (montP.isInfinity) return EdwardsPoint.infinity();
 
-    final result = Montgomery.scalarMulFull(k, montP);
+    final result = Montgomery.scalarMulFull(k, montP, blind: blind);
     if (result.isInfinity) return EdwardsPoint.infinity();
     return fromMontgomery(result);
+  }
+
+  // True iff P is a non-identity point of the prime-order subgroup.
+  //
+  // Points of order 1, 2, 4 and mixed-order points are rejected. This is the
+  // point validation used by Ed256189 for public keys and signature points.
+  static bool isInPrimeOrderSubgroup(EdwardsPoint P) {
+    if (P.isIdentity) return false;
+    if (!isOnCurve(P)) return false;
+
+    // toMontgomery is undefined for x = 0 and y = 1; both are low-order
+    // points (identity or order 2), so reject them without converting.
+    if (P.x == BigInt.zero) return false;
+    if (P.y == BigInt.one) return false;
+
+    final mont = toMontgomery(P);
+    return Montgomery.isInPrimeOrderSubgroup(mont);
   }
 }

@@ -4,7 +4,9 @@
 
 A pure-Dart elliptic curve cryptography library built on **Curve256189**, a Montgomery curve y² = x³ + Ax² + x over the prime field 𝔽ₚ with p = 2²⁵⁶ − 189.
 
-Curve256189 was designed and implemented by Ismael Urzaiz Aranda. It satisfies all eleven [SafeCurves](https://safecurves.cr.yp.to/) criteria (11/11), verified with SageMath (`tool/safecurves_curve256189.sage`). The library provides X256189 (ECDH), XEdDSA (signatures), Elligator 2 (point encoding), HKDF, and AES-GCM, all implemented in Dart. Its Edwards layer uses the dual complete curve E_{d,a}, so affine Edwards addition has no exceptional inputs.
+Curve256189 was designed and implemented by Ismael Urzaiz Aranda. It satisfies all eleven [SafeCurves](https://safecurves.cr.yp.to/) criteria (11/11), verified with SageMath (`tool/safecurves_curve256189.sage`). The library provides X256189 (ECDH), Ed256189 (RFC 8032-shaped EdDSA signatures), XEdDSA (superseded signatures), Elligator 2 (point encoding), HKDF, and AES-GCM, all implemented in Dart. Its Edwards layer uses the dual complete curve E_{d,a}, so affine Edwards addition has no exceptional inputs.
+
+Ed256189 is specified in [doc/ed256189.md](doc/ed256189.md). XEdDSA is kept for backwards compatibility and is marked superseded; it will be removed in a future major release.
 
 ---
 
@@ -66,14 +68,15 @@ The full parameter set, including the subgroup orders n and nᵗ and the generat
 | Component | Description |
 | --- | --- |
 | **Curve256189** | Montgomery curve: core arithmetic, point validation, scalar blinding |
-| **Ed256189** | Twisted Edwards form E_{a,d}, with addition evaluated on the dual complete curve E_{d,a} |
-| **DualEdwards** | Complete Edwards model E_{d,a} with the standard exception-free addition law |
+| **Ed256189** | EdDSA signatures on the complete dual curve E_{d,a}: 33-byte public keys, 65-byte signatures, SHA-512, strict verification |
+| **Edwards** | Twisted Edwards form E_{a,d}, with addition evaluated on the dual complete curve E_{d,a} |
+| **DualEdwards** | Complete Edwards model E_{d,a} with the standard exception-free addition law and 33-byte point encoding |
 | **X256189** | ECDH key exchange with cofactor clearing per RFC 7748 |
-| **XEdDSA** | x-only Schnorr-style signatures on the Montgomery curve |
+| **XEdDSA** | x-only Schnorr-style signatures on the Montgomery curve (**superseded** by Ed256189; kept for compatibility) |
 | **Elligator 2** | Point encoding and decoding per RFC 9380 |
 | **HKDF** | Key derivation per RFC 5869 |
 | **AES-GCM** | Authenticated encryption per NIST SP 800-38D |
-| **Batch Verify** | High-throughput batch verification of XEdDSA signatures |
+| **Batch Verify** | High-throughput batch verification of XEdDSA signatures (Ed256189 has no batch verifier yet) |
 
 ---
 
@@ -125,7 +128,7 @@ This is different from adding a second "dual" addition formula on `E_{a,d}` itse
 
 The only result that cannot be represented is a sum that is itself one of the two order-4 points of `E_{a,d}`. Those points have no affine `(x, y)` coordinates, so `TwistedEdwards.add` raises a `StateError` instead of returning a bogus point. The Montgomery layer and `DualEdwards` still handle them natively.
 
-`DualEdwards` exposes the complete model directly, with `fromMontgomery` / `toMontgomery`, `fromTwistedEdwards` / `toTwistedEdwards`, `isOnCurve`, `add`, `negate`, and `scalarMul`.
+`DualEdwards` exposes the complete model directly, with `fromMontgomery` / `toMontgomery`, `fromTwistedEdwards` / `toTwistedEdwards`, `isOnCurve`, `add`, `negate`, `scalarMul`, `encodePoint`, `decodePoint`, and `isInPrimeOrderSubgroup`. It is also the signature curve for Ed256189; see [doc/ed256189.md](doc/ed256189.md).
 
 ---
 
@@ -135,8 +138,10 @@ The only result that cannot be represented is a sum that is itself one of the tw
 - **Scalar blinding:** randomized 64-bit multiples of the full curve order `4n` via `Random.secure()`, which preserves the result for every curve point and reduces timing leakage.
 - **Point validation:** rejects the point at infinity, out-of-range coordinates, off-curve points, and low-order points.
 - **Cofactor clearing:** h = 4, following the RFC 7748 convention.
-- **Strict signature verification:** canonical `s < n`, exact 64-byte signatures, canonical even-`y` decoding, and prime-order subgroup membership for both `R` and `P`.
-- **Non-malleable signatures:** canonical scalars and full-point equality reject sign-flipped `R` and `s + n` variants.
+- **Ed256189 signatures:** deterministic nonce from a secret prefix and the message, domain-separated nonce and challenge, canonical `S < n`, exact 65-byte signatures, canonical 33-byte point encodings, prime-order subgroup membership for both `R` and `A`, and the exact group equation `[S]B == R + [k]A`. Low-order and mixed-order keys are rejected.
+- **XEdDSA signatures (superseded):** strict verification with canonical `s < n`, exact 64-byte signatures, canonical even-`y` decoding, and prime-order subgroup membership for both `R` and `P`.
+- **Independent keys:** Ed256189 derives its key on `E_{d,a}` without the `×4` cofactor clearing used by X256189/XEdDSA, so the same seed gives unrelated keys across the schemes.
+- **Non-malleable signatures:** canonical scalars, subgroup checks, and exact point equality reject sign-flipped `R`, `s + n`, and low-order components.
 - **Elligator 2:** uniform random-looking point encoding, providing resistance to traffic analysis.
 - **Complete Edwards addition:** affine Edwards addition is evaluated on the dual curve `E_{d,a}`, whose standard addition law is complete. The only rejected result is an order-4 sum that has no affine representation.
 
@@ -148,7 +153,29 @@ The implementation relies on Dart's `BigInt`, whose arithmetic is not guaranteed
 
 ## Test Vectors
 
-### XEdDSA
+### Ed256189
+```
+Seed:       000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f
+Public Key: bb25346e4368d99df536e9b492ba3e6792fdc5249eb5188edca81231013037b501
+Message:    (empty)
+Signature:  173244f1e9b34f299a509a60b9dd76d20cd759251e3feb76fdec242f07614de3
+            01306536c3a7f4365984bec0c141569872f1f246f2355f92d099ff05de2163293a
+```
+```
+Seed:       000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f
+Public Key: bb25346e4368d99df536e9b492ba3e6792fdc5249eb5188edca81231013037b501
+Message:    "abc" (616263)
+Signature:  ac40e33f1de81b2eda3f0f588da0eef7603b126ef4400dfb6faf7292603bf7b2
+            0007cdd17f92e28a7f2724a65404bfb8897b40acae0841758fe7b3be747140630e
+```
+
+The public key is a 33-byte encoded point on `E_{d,a}` and the signature is
+`R || S` (33 + 32 bytes). Ed256189 is **not** wire-compatible with Ed25519,
+Ed448, or XEdDSA. The full 16-vector set is generated by
+`tool/ed256189_vectors.py` and checked in `test/eddsa256189_test.dart`; see
+[doc/ed256189.md](doc/ed256189.md).
+
+### XEdDSA (superseded)
 ```
 Seed:       0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20
 Public Key: 337d3142bff70cdcbe04d69ee7b7a36c3e8df6bba0a5e0a12cb4b1b580bab424
@@ -160,7 +187,8 @@ Signature:  c87e2d535cab5c2ede5993907c4c8d97aa6be84dd9de5b0b4b39e56d4d084284
 The public key is identical to the X256189 key for the same seed, because both
 derive the cofactor-cleared scalar. The signature is `x(R) || s`, both
 little-endian 32-byte values. XEdDSA is **not** wire-compatible with RFC 8032
-EdDSA.
+EdDSA, and the same seed produces a different Ed256189 key. XEdDSA is
+**superseded** by Ed256189; keep it only for existing data and protocols.
 
 ### X256189 (ECDH + HKDF)
 ```
@@ -191,7 +219,29 @@ Tag:       530f8afbc74536b9a963b4f1c4cb738b (NIST verified)
 
 ## Usage
 
-### XEdDSA: Sign and Verify
+### Ed256189: EdDSA Sign and Verify
+```dart
+import 'package:curve256189/curve256189.dart';
+import 'dart:typed_data';
+
+// Generate key pair from a 32-byte seed.
+final seed = Uint8List(32); // use a cryptographically random seed
+final keyPair = Ed256189.generateKeyPair(seed);
+
+// Sign (deterministic, 65-byte signature).
+final message = Uint8List.fromList('Hello!'.codeUnits);
+final signature = Ed256189.sign(message, keyPair['privateKey']!);
+
+// Verify.
+final valid = Ed256189.verify(message, signature, keyPair['publicKey']!);
+```
+
+The public key is 33 bytes and the signature is 65 bytes (`R || S`). The
+scheme is specified in [doc/ed256189.md](doc/ed256189.md) and is not
+wire-compatible with Ed25519, Ed448, or XEdDSA. Ed256189 keys are independent
+of X256189/XEdDSA keys derived from the same seed.
+
+### XEdDSA: Sign and Verify (superseded)
 ```dart
 import 'package:curve256189/curve256189.dart';
 import 'dart:typed_data';
@@ -296,6 +346,7 @@ dart test test/xeddsa_test.dart
 | `test/params_test.dart` | curve constants, orders, twist, embedding degree |
 | `test/montgomery_test.dart` | group law, ladder, blinding, point validation |
 | `test/edwards_test.dart` | birational maps, dual-curve completeness, group law, point compression |
+| `test/eddsa256189_test.dart` | Ed256189 vectors, point encoding, subgroup validation, malformed signatures and keys |
 | `test/elligator_test.dart` | test vectors, RFC 9380 exceptional case, decode |
 | `test/x256189_test.dart` | ECDH vectors, invalid and twist public keys |
 | `test/xeddsa_test.dart` | signature vectors, malleability, invalid inputs |
@@ -322,13 +373,33 @@ dart run tool/benchmark.dart
 - **No `BigInt.modPow`:** Dart's `BigInt.modPow` returns wrong results for some structured 256-bit inputs, for example base `p - 1` or `(p - 1) / 2` (2253 of 5904 structured cases failed on one Dart SDK). Random inputs rarely trigger it. All modular exponentiation therefore uses the square-and-multiply implementation in `FieldElement.pow()`, which `test/field_test.dart` checks against known answers on structured and random inputs. Every exponent used in the library is a public constant, so branching on its bits does not leak secrets.
 - **Okeya-Sakurai y-recovery:** `Montgomery.scalarMulFull` uses the Okeya-Sakurai (2001) formula to recover a full point from the x-only ladder. The `[k+1]P = O` case is handled directly, and a double-and-add fallback covers any remaining degenerate input. Scalar blinding adds a random 64-bit multiple of `4n`, so it is correct for low-order and mixed-order points as well.
 - **Dual-curve Edwards addition:** the natural form `E_{a,d}` has a non-square `a` and a square `d`, so its standard addition law is incomplete. `TwistedEdwards.add` maps to the dual curve `E_{d,a}` through `Phi(x, y) = (-x, 1/y)`, adds with the complete law there, and maps back. Only a sum equal to an order-4 point, which has no affine coordinates, is rejected.
-- **x-only signatures:** XEdDSA avoids Edwards addition entirely. Signing and verification canonicalise `P` and `R` to the even-`y` representative and check the exact full-point equation `[s]G == R + [h]P`, so variants such as `(x(R), n - s)` or a sign-flipped `R` cannot be accepted.
-- **Strict validation:** signatures must be exactly 64 bytes, `s < n`, and both `R` and `P` must decode to canonical even-`y` points in the prime-order subgroup. Low-order and mixed-order public keys are rejected.
-- **Parity bit handling:** `TwistedEdwards.decodePoint` tests `(bytes[32] & 1) == 1` rather than `bytes[32] == 1`, so that all odd parity byte values are decoded correctly.
+- **Ed256189 signature curve:** RFC 8032 requires a square `a` and a non-square `d`. Curve256189's natural model has the opposite, so Ed256189 uses `E_{d,a}` and the generator `B = Phi(G)`. Because `p` is a full 256-bit prime there is no spare sign bit, so points are encoded as `LE(v, 32) || parity(u)` (33 bytes). `S < n < 2^254` is encoded in 32 bytes, giving 65-byte signatures.
+- **Ed256189 key derivation:** `SHA-512(seed)` is split into a 32-byte scalar and a 32-byte prefix. The scalar is pruned for cofactor 4 (clear bits 0–1, clear bit 255, set bit 254), not reduced modulo `n`, and not multiplied by 4. Keys are therefore independent of X256189/XEdDSA keys for the same seed.
+- **Ed256189 nonce and challenge:** `r = SHA-512("Curve256189-Ed256189-v1" || 0x01 || prefix || counter || M) mod n` (4-byte little-endian counter, retried only if `r = 0`), and `k = SHA-512(domain || 0x02 || R || A || M) mod n`. Both hashes cover the domain string and tag explicitly.
+- **Ed256189 verification:** exact 33-byte public-key and 65-byte signature lengths, canonical `S < n`, canonical point encodings, non-identity prime-order subgroup checks for both `R` and `A`, and the exact equation `[S]B == R + [k]A`. Signatures are deterministic and non-malleable; malformed inputs return `false` instead of throwing.
+- **x-only signatures (XEdDSA, superseded):** XEdDSA avoids Edwards addition entirely. Signing and verification canonicalise `P` and `R` to the even-`y` representative and check the exact full-point equation `[s]G == R + [h]P`, so variants such as `(x(R), n - s)` or a sign-flipped `R` cannot be accepted.
+- **XEdDSA strict validation:** signatures must be exactly 64 bytes, `s < n`, and both `R` and `P` must decode to canonical even-`y` points in the prime-order subgroup. Low-order and mixed-order public keys are rejected.
+- **Parity byte handling:** `TwistedEdwards.decodePoint` tests `(bytes[32] & 1) == 1` rather than `bytes[32] == 1`, so all odd parity byte values are decoded correctly. `DualEdwards.decodePoint`, used by Ed256189, is stricter and rejects any parity byte other than `0` or `1`.
 - **Little-endian encoding:** all byte serialization follows the RFC 7748 convention.
-- **Deterministic signatures:** the XEdDSA nonce is derived as `SHA-512(domain || 0x01 || prefix || counter || message) mod n`, with the challenge as `SHA-512(domain || 0x02 || x(R) || x(P) || message) mod n`.
+- **XEdDSA nonce and challenge:** `SHA-512(domain || 0x01 || prefix || counter || message) mod n` and `SHA-512(domain || 0x02 || x(R) || x(P) || message) mod n`.
 
-### XEdDSA Scheme Summary
+### Ed256189 Scheme Summary
+
+| Item | Value |
+|---|---|
+| Signature curve | `E_{d,a}: d·u² + v² = 1 + a·u²·v²`, `a' = 479595`, `d' = 479599` |
+| Generator | `B = Phi(G)` on `E_{d,a}` |
+| Domain separation | `Curve256189-Ed256189-v1`, tags `0x01` (nonce) and `0x02` (challenge) |
+| Secret derivation | `s = LE(SHA-512(seed)[0..32])` pruned for cofactor 4 |
+| Public key | `enc([s]B)`, 33 bytes |
+| Nonce | `r = SHA-512(domain ‖ 0x01 ‖ prefix ‖ counter ‖ M) mod n` |
+| Challenge | `k = SHA-512(domain ‖ 0x02 ‖ R ‖ A ‖ M) mod n` |
+| Signature | `R ‖ S`, 65 bytes, `S = r + k·s mod n` |
+| Verification | `[S]B == R + [k]A` after subgroup checks |
+
+Full specification and deviation list: [doc/ed256189.md](doc/ed256189.md).
+
+### XEdDSA Scheme Summary (superseded)
 
 | Item | Value |
 |---|---|
@@ -343,7 +414,8 @@ dart run tool/benchmark.dart
 This is a Curve256189-specific x-only construction inspired by XEdDSA-style
 designs. It is not the Signal XEdDSA wire format and has not undergone an
 independent cryptographic audit; review it before deploying it in a
-security-critical system.
+security-critical system. **XEdDSA is superseded by Ed256189** and is kept
+only for compatibility; new protocols should use Ed256189.
 
 ---
 
@@ -364,6 +436,7 @@ MIT License. See [LICENSE](LICENSE).
 - [Edwards, *A normal form for elliptic curves* (2007)](https://www.ams.org/journals/bull/2007-44-03/S0273-0979-07-01153-6/)
 
 ### Protocols and primitives
+- [Ed256189 specification](doc/ed256189.md): parameters, wire format, and deviations from RFC 8032
 - [RFC 7748](https://www.rfc-editor.org/rfc/rfc7748): Elliptic Curves for Diffie-Hellman
 - [RFC 8032](https://www.rfc-editor.org/rfc/rfc8032): Edwards-Curve Digital Signature Algorithm
 - [RFC 9380](https://www.rfc-editor.org/rfc/rfc9380): Hashing to Elliptic Curves (Elligator 2)

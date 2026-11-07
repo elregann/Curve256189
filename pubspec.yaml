@@ -2,10 +2,11 @@ name: curve256189
 
 description: >
   Curve256189: SafeCurves-compliant (11/11) Montgomery elliptic curve
-  with X256189 ECDH, XEdDSA signatures, Elligator 2, HKDF and AES-GCM.
-  Pure Dart cryptography library.
+  with X256189 ECDH, Ed256189 (RFC 8032-shaped EdDSA) and XEdDSA
+  signatures, Elligator 2, HKDF and AES-GCM. Pure Dart cryptography
+  library.
 
-version: 1.0.0-beta.4
+version: 1.0.0-beta.5
 
 homepage: https://github.com/elregann/Curve256189
 repository: https://github.com/elregann/Curve256189
@@ -20,6 +21,7 @@ keywords:
   - safecurves
   - montgomery-curve
   - xeddsa
+  - eddsa
   - schnorr
   - ecdh
   - edwards-curve

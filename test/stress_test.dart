@@ -191,4 +191,48 @@ void main() {
       }
     }
   });
+
+  test('Ed256189: random signatures round-trip and tampering fails', () {
+    final rng = Random(11);
+    for (var i = 0; i < 12; i++) {
+      final seed = _randomBytes(rng, 32);
+      final message = _randomBytes(rng, rng.nextInt(65));
+      final keys = Ed256189.generateKeyPair(seed);
+      final signature = Ed256189.sign(message, seed);
+
+      expect(
+        Ed256189.verify(message, signature, keys['publicKey']!),
+        isTrue,
+        reason: 'i=$i',
+      );
+
+      final tampered = Uint8List.fromList(signature)..[32] ^= 1;
+      expect(
+        Ed256189.verify(message, tampered, keys['publicKey']!),
+        isFalse,
+        reason: 'i=$i',
+      );
+    }
+  });
+
+  test('DualEdwards: encode/decode round trip for random multiples', () {
+    final rng = Random(12);
+    final gDual = DualEdwards.fromMontgomery(MontgomeryPoint.G);
+    for (var i = 0; i < 100; i++) {
+      final point = DualEdwards.scalarMul(
+        _randomBelow(rng, n) + BigInt.one,
+        gDual,
+      );
+      expect(
+        DualEdwards.isInPrimeOrderSubgroup(point),
+        isTrue,
+        reason: 'i=$i',
+      );
+
+      final back = DualEdwards.decodePoint(DualEdwards.encodePoint(point));
+      expect(back, isNotNull, reason: 'i=$i');
+      expect(back!.x, point.x, reason: 'i=$i');
+      expect(back.y, point.y, reason: 'i=$i');
+    }
+  });
 }
