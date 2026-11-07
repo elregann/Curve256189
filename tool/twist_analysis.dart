@@ -1,4 +1,4 @@
-// test_twist.dart
+// tool/twist_analysis.dart
 
 // Twist Curve Security Analysis for Curve256189
 //
@@ -155,11 +155,15 @@ void main() {
     print('  SafeCurves criterion 9: PASS.');
   } else {
     print('  Twist has dangerous factors.');
-    if (powerOf2 > 3)
+    if (powerOf2 > 3) {
       print('    Power-of-2 cofactor is too large: 2^$powerOf2');
-    if (!subgroupPrime) print('    Twist subgroup is not prime');
-    if (dangerousFactors.isNotEmpty)
+    }
+    if (!subgroupPrime) {
+      print('    Twist subgroup is not prime');
+    }
+    if (dangerousFactors.isNotEmpty) {
       print('    Dangerous odd factors: $dangerousFactors');
+    }
   }
   print('');
   print('=== Twist Security Test Completed ===');

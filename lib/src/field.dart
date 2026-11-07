@@ -46,7 +46,7 @@ class FieldElement {
   // Modular exponentiation a^exp mod p via square and multiply.
   // Dart's BigInt.modPow returns wrong results for some 256 bit inputs, for
   // example base p minus 1 or (p minus 1) / 2, so it must not be used here.
-  // See dev/integration/test_modpow.dart. Every exponent used in this library
+  // See test/field_test.dart. Every exponent used in this library
   // is a public constant, so branching on its bits does not leak secrets.
   static BigInt pow(BigInt a, BigInt exp) {
     if (exp < BigInt.zero) {

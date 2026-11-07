@@ -1,4 +1,4 @@
-// test_mov.dart
+// tool/mov_analysis.dart
 
 // MOV Attack Vulnerability Test for Curve256189
 //

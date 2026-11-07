@@ -4,13 +4,13 @@
 
 A pure-Dart elliptic curve cryptography library built on **Curve256189**, a Montgomery curve y² = x³ + Ax² + x over the prime field 𝔽ₚ with p = 2²⁵⁶ − 189.
 
-Curve256189 was designed and implemented by Ismael Urzaiz Aranda. It satisfies all eleven [SafeCurves](https://safecurves.cr.yp.to/) criteria (11/11), verified with SageMath (`dev/unit/safecurves_curve256189.sage`). The library provides X256189 (ECDH), XEdDSA (signatures), Elligator 2 (point encoding), HKDF, and AES-GCM, all implemented in Dart.
+Curve256189 was designed and implemented by Ismael Urzaiz Aranda. It satisfies all eleven [SafeCurves](https://safecurves.cr.yp.to/) criteria (11/11), verified with SageMath (`tool/safecurves_curve256189.sage`). The library provides X256189 (ECDH), XEdDSA (signatures), Elligator 2 (point encoding), HKDF, and AES-GCM, all implemented in Dart.
 
 ---
 
 ## Parameter Selection
 
-The parameters of Curve256189 were selected against explicit design criteria rather than ad hoc. The selection procedure is deterministic and reproducible (`dev/unit/found.sage`).
+The parameters of Curve256189 were selected against explicit design criteria rather than ad hoc. The selection procedure is deterministic and reproducible (`tool/find_prime.sage`).
 
 ### Design Criteria
 
@@ -96,7 +96,7 @@ Curve256189 satisfies all 11 SafeCurves criteria, verified with SageMath:
 
 **Total: 11/11 criteria met.**
 
-Full verification: `dev/unit/safecurves_curve256189.sage`
+Full verification: `tool/safecurves_curve256189.sage`
 
 ---
 
@@ -239,26 +239,42 @@ final plaintext = AESGCM.decrypt(
 
 ## Running Tests
 ```bash
-SageMath dev/unit/safecurves_curve256189.sage
-dart dev/unit/test_aesgcm.dart
-dart dev/unit/test_batch_verify.dart
-dart dev/unit/test_blinding.dart
-dart dev/unit/test_xeddsa.dart
-dart dev/unit/test_edwards.dart
-dart dev/unit/test_elligator.dart
-dart dev/unit/test_elligator_exceptional.dart
-dart dev/unit/test_field.dart
-dart dev/unit/test_hkdf.dart
-dart dev/unit/test_montgomery.dart
-dart dev/unit/test_validation.dart
-dart dev/unit/test_x256189.dart
+dart pub get
+dart test                  # full suite
+dart test -x slow          # skip the randomised and long-running tests
+dart test test/xeddsa_test.dart
+```
+
+| File | Covers |
+|---|---|
+| `test/field_test.dart` | field arithmetic, `pow` regression for structured inputs |
+| `test/params_test.dart` | curve constants, orders, twist, embedding degree |
+| `test/montgomery_test.dart` | group law, ladder, blinding, point validation |
+| `test/edwards_test.dart` | birational maps, group law, point compression |
+| `test/elligator_test.dart` | test vectors, RFC 9380 exceptional case, decode |
+| `test/x256189_test.dart` | ECDH vectors, invalid and twist public keys |
+| `test/xeddsa_test.dart` | signature vectors, malleability, invalid inputs |
+| `test/batch_verify_test.dart` | batch verification, malformed entries |
+| `test/hkdf_test.dart` | RFC 5869 vectors |
+| `test/aesgcm_test.dart` | NIST vectors, tamper and AAD checks |
+| `test/stress_test.dart` | randomised checks (tag `slow`) |
+
+Analysis and benchmark scripts live in `tool/` and are not part of the test
+suite:
+
+```bash
+sage tool/safecurves_curve256189.sage
+sage tool/find_prime.sage
+dart run tool/twist_analysis.dart
+dart run tool/mov_analysis.dart
+dart run tool/benchmark.dart
 ```
 
 ---
 
 ## Implementation Notes
 
-- **No `BigInt.modPow`:** Dart's `BigInt.modPow` returns wrong results for some structured 256-bit inputs, for example base `p - 1` or `(p - 1) / 2` (2253 of 5904 structured cases failed on one Dart SDK). Random inputs rarely trigger it. All modular exponentiation therefore uses the square-and-multiply implementation in `FieldElement.pow()`, which `dev/integration/test_modpow.dart` checks against known answers on structured and random inputs. Every exponent used in the library is a public constant, so branching on its bits does not leak secrets.
+- **No `BigInt.modPow`:** Dart's `BigInt.modPow` returns wrong results for some structured 256-bit inputs, for example base `p - 1` or `(p - 1) / 2` (2253 of 5904 structured cases failed on one Dart SDK). Random inputs rarely trigger it. All modular exponentiation therefore uses the square-and-multiply implementation in `FieldElement.pow()`, which `test/field_test.dart` checks against known answers on structured and random inputs. Every exponent used in the library is a public constant, so branching on its bits does not leak secrets.
 - **Okeya-Sakurai y-recovery:** `Montgomery.scalarMulFull` uses the Okeya-Sakurai (2001) formula to recover a full point from the x-only ladder. The `[k+1]P = O` case is handled directly, and a double-and-add fallback covers any remaining degenerate input. Scalar blinding adds a random 64-bit multiple of `4n`, so it is correct for low-order and mixed-order points as well.
 - **x-only signatures:** XEdDSA avoids Edwards addition entirely. Signing and verification canonicalise `P` and `R` to the even-`y` representative and check the exact full-point equation `[s]G == R + [h]P`, so variants such as `(x(R), n - s)` or a sign-flipped `R` cannot be accepted.
 - **Strict validation:** signatures must be exactly 64 bytes, `s < n`, and both `R` and `P` must decode to canonical even-`y` points in the prime-order subgroup. Low-order and mixed-order public keys are rejected.

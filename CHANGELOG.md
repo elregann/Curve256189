@@ -1,5 +1,14 @@
 ## Unreleased
 
+- Tests: replaced the print-based scripts in `dev/` with a real `package:test`
+  suite in `test/` (`dart test`). Every check is an assertion, known answers
+  were computed independently in Python, and randomised checks are tagged
+  `slow`. Added RFC 5869 (HKDF) and NIST (AES-GCM) vectors, malformed-input
+  cases for XEdDSA and batch verification, twist and mixed-order public key
+  rejection, and Edwards point compression edge cases.
+- Analysis and benchmark scripts moved to `tool/`.
+- Added GitHub Actions CI (`dart analyze`, `dart test`) and stopped tracking
+  `.idea/`, `*.iml` and `pubspec.lock`.
 - Elligator 2 `encode` now follows RFC 9380 section 6.7.1 when
   `1 + 2t² = 0`: `x1` is set to `-A` instead of `0`, so the two affected
   inputs no longer map to the order-2 point. `decode` maps `x = -A` back to
@@ -7,7 +16,7 @@
 - `FieldElement.pow` keeps its own square and multiply implementation because
   Dart's `BigInt.modPow` returns wrong results for some structured inputs
   (for example base `p - 1`). `Elligator` now reuses `FieldElement.pow` and
-  `Montgomery.curveRhs` instead of private duplicates. `test_modpow.dart`
+  `Montgomery.curveRhs` instead of private duplicates. `test/field_test.dart`
   covers structured inputs with known answers.
 - Removed the FPOW claim from the changelog and package metadata. It is not
   part of this library.
@@ -40,7 +49,7 @@
   with fallback), scalar blinding over the full curve order, and
   `FieldElement.inv(0)` error handling.
 - Updated the `XEdDSA` example, test vectors, and test suite
-  (`dev/unit/test_xeddsa.dart`).
+  (`test/xeddsa_test.dart`).
 
 ## 1.0.0-beta.1
 

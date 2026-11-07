@@ -1,4 +1,4 @@
-// test_field_speed.dart
+// tool/benchmark.dart
 
 // Curve256189 Performance Benchmark
 // Measures: field operations, scalar multiplication, point operations
