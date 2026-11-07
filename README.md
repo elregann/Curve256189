@@ -4,7 +4,7 @@
 
 A pure-Dart elliptic curve cryptography library built on **Curve256189**, a Montgomery curve y² = x³ + Ax² + x over the prime field 𝔽ₚ with p = 2²⁵⁶ − 189.
 
-Curve256189 was designed and implemented by Ismael Urzaiz Aranda. It satisfies all eleven [SafeCurves](https://safecurves.cr.yp.to/) criteria (11/11), verified with SageMath (`tool/safecurves_curve256189.sage`). The library provides X256189 (ECDH), XEdDSA (signatures), Elligator 2 (point encoding), HKDF, and AES-GCM, all implemented in Dart.
+Curve256189 was designed and implemented by Ismael Urzaiz Aranda. It satisfies all eleven [SafeCurves](https://safecurves.cr.yp.to/) criteria (11/11), verified with SageMath (`tool/safecurves_curve256189.sage`). The library provides X256189 (ECDH), XEdDSA (signatures), Elligator 2 (point encoding), HKDF, and AES-GCM, all implemented in Dart. Its Edwards layer uses the dual complete curve E_{d,a}, so affine Edwards addition has no exceptional inputs.
 
 ---
 
@@ -66,7 +66,8 @@ The full parameter set, including the subgroup orders n and nᵗ and the generat
 | Component | Description |
 | --- | --- |
 | **Curve256189** | Montgomery curve: core arithmetic, point validation, scalar blinding |
-| **Ed256189** | Birationally equivalent twisted Edwards form (compatibility layer) |
+| **Ed256189** | Twisted Edwards form E_{a,d}, with addition evaluated on the dual complete curve E_{d,a} |
+| **DualEdwards** | Complete Edwards model E_{d,a} with the standard exception-free addition law |
 | **X256189** | ECDH key exchange with cofactor clearing per RFC 7748 |
 | **XEdDSA** | x-only Schnorr-style signatures on the Montgomery curve |
 | **Elligator 2** | Point encoding and decoding per RFC 9380 |
@@ -91,12 +92,40 @@ Curve256189 satisfies all 11 SafeCurves criteria, verified with SageMath:
 | 7 | Rigidity | A = 479597 is the unique coefficient in 0 ≤ A ≤ 10⁶ with cofactors (4, 4), prime subgroup order and prime twist subgroup order; the exhaustive scan also covered (4, 8), (8, 4) and (8, 8) | Pass |
 | 8 | Ladder | A²-4 mod p = 230013282405 (non-square) | Pass |
 | 9 | Twist | Twist order = 115792089237316195423570985008687907853508294860270032600014303033449025497164 = 0x100000000000000000000000000000000b348dfbdbda30ccc279b8f81bab1e84c, twist cofactor = 4, twist subgroup order = 28948022309329048855892746252171976963377073715067508150003575758362256374291 (prime) | Pass |
-| 10 | Completeness | Montgomery ladder complete (A²-4 non-square); twisted Edwards completeness not required | Pass |
+| 10 | Completeness | Montgomery ladder complete (A²-4 non-square); the affine twisted Edwards layer uses the dual curve E_{d,a}, whose standard addition law is complete because a' = d is a square and d' = a is a non-square | Pass |
 | 11 | Indistinguishability | Elligator 2 applicable: A²-4 non-square, curve has a point of order 2 | Pass |
 
 **Total: 11/11 criteria met.**
 
 Full verification: `tool/safecurves_curve256189.sage`
+
+---
+
+## Edwards Representation and Completeness
+
+Curve256189 has two birationally equivalent twisted Edwards models:
+
+| Model | Equation | Coefficients | Addition law |
+|---|---|---|---|
+| Natural (`E_{a,d}`) | `a x² + y² = 1 + d x² y²` | `a = A + 2 = 479599`, `d = A − 2 = 479595` | Incomplete |
+| Dual (`E_{d,a}`) | `d u² + v² = 1 + a u² v²` | `a' = d = 479595`, `d' = a = 479599` | Complete |
+
+Modulo `p`, the coefficient `a` is a quadratic non-residue and `d` is a quadratic residue, so the natural model is outside the Bernstein–Lange completeness condition. Its two points of order 4 lie at infinity in the affine `(x, y)` chart, and the standard addition law fails when the difference of the inputs is one of them, or when their sum is one of them.
+
+Swapping the coefficients fixes this. On `E_{d,a}` the coefficient of `u²` is a square and the coefficient of `u²v²` is a non-square, exactly the condition under which the standard addition law is complete. The curves are isomorphic through
+
+```
+Phi(x, y) = (-x, 1/y) : E_{a,d} -> E_{d,a},
+Phi(P + Q) = Phi(P) + Phi(Q),
+```
+
+and `Phi` is an involution. `TwistedEdwards.add` therefore computes `Phi(Phi(P) + Phi(Q))` using the complete law on `E_{d,a}`. This removes the old exceptional cases: every pair whose difference is an order-4 point now adds correctly.
+
+This is different from adding a second "dual" addition formula on `E_{a,d}` itself: completeness comes from moving to the isomorphic curve `E_{d,a}` and using its ordinary addition law, which has no exceptional inputs there. Alternative unified formulas on `E_{a,d}` (for example the Hisil–Wong–Carter–Dawson formulas) still have exceptional cases and are not used here.
+
+The only result that cannot be represented is a sum that is itself one of the two order-4 points of `E_{a,d}`. Those points have no affine `(x, y)` coordinates, so `TwistedEdwards.add` raises a `StateError` instead of returning a bogus point. The Montgomery layer and `DualEdwards` still handle them natively.
+
+`DualEdwards` exposes the complete model directly, with `fromMontgomery` / `toMontgomery`, `fromTwistedEdwards` / `toTwistedEdwards`, `isOnCurve`, `add`, `negate`, and `scalarMul`.
 
 ---
 
@@ -109,6 +138,7 @@ Full verification: `tool/safecurves_curve256189.sage`
 - **Strict signature verification:** canonical `s < n`, exact 64-byte signatures, canonical even-`y` decoding, and prime-order subgroup membership for both `R` and `P`.
 - **Non-malleable signatures:** canonical scalars and full-point equality reject sign-flipped `R` and `s + n` variants.
 - **Elligator 2:** uniform random-looking point encoding, providing resistance to traffic analysis.
+- **Complete Edwards addition:** affine Edwards addition is evaluated on the dual curve `E_{d,a}`, whose standard addition law is complete. The only rejected result is an order-4 sum that has no affine representation.
 
 ### Side-Channel Considerations
 
@@ -190,6 +220,21 @@ final ok = BatchVerify.verify([
 ]);
 ```
 
+### Edwards: complete affine addition
+```dart
+import 'package:curve256189/curve256189.dart';
+
+final g = TwistedEdwards.fromMontgomery(MontgomeryPoint.G);
+final twoG = TwistedEdwards.scalarMul(BigInt.two, g);
+
+// Exception-free for affine points, including doubling and mixed orders.
+final threeG = TwistedEdwards.add(g, twoG);
+
+// Or work directly on the complete dual model E_{d,a}.
+final gDual = DualEdwards.fromMontgomery(MontgomeryPoint.G);
+final threeGDual = DualEdwards.scalarMul(BigInt.from(3), gDual);
+```
+
 ### X256189: ECDH Key Exchange
 ```dart
 import 'package:curve256189/curve256189.dart';
@@ -250,7 +295,7 @@ dart test test/xeddsa_test.dart
 | `test/field_test.dart` | field arithmetic, `pow` regression for structured inputs |
 | `test/params_test.dart` | curve constants, orders, twist, embedding degree |
 | `test/montgomery_test.dart` | group law, ladder, blinding, point validation |
-| `test/edwards_test.dart` | birational maps, group law, point compression |
+| `test/edwards_test.dart` | birational maps, dual-curve completeness, group law, point compression |
 | `test/elligator_test.dart` | test vectors, RFC 9380 exceptional case, decode |
 | `test/x256189_test.dart` | ECDH vectors, invalid and twist public keys |
 | `test/xeddsa_test.dart` | signature vectors, malleability, invalid inputs |
@@ -276,6 +321,7 @@ dart run tool/benchmark.dart
 
 - **No `BigInt.modPow`:** Dart's `BigInt.modPow` returns wrong results for some structured 256-bit inputs, for example base `p - 1` or `(p - 1) / 2` (2253 of 5904 structured cases failed on one Dart SDK). Random inputs rarely trigger it. All modular exponentiation therefore uses the square-and-multiply implementation in `FieldElement.pow()`, which `test/field_test.dart` checks against known answers on structured and random inputs. Every exponent used in the library is a public constant, so branching on its bits does not leak secrets.
 - **Okeya-Sakurai y-recovery:** `Montgomery.scalarMulFull` uses the Okeya-Sakurai (2001) formula to recover a full point from the x-only ladder. The `[k+1]P = O` case is handled directly, and a double-and-add fallback covers any remaining degenerate input. Scalar blinding adds a random 64-bit multiple of `4n`, so it is correct for low-order and mixed-order points as well.
+- **Dual-curve Edwards addition:** the natural form `E_{a,d}` has a non-square `a` and a square `d`, so its standard addition law is incomplete. `TwistedEdwards.add` maps to the dual curve `E_{d,a}` through `Phi(x, y) = (-x, 1/y)`, adds with the complete law there, and maps back. Only a sum equal to an order-4 point, which has no affine coordinates, is rejected.
 - **x-only signatures:** XEdDSA avoids Edwards addition entirely. Signing and verification canonicalise `P` and `R` to the even-`y` representative and check the exact full-point equation `[s]G == R + [h]P`, so variants such as `(x(R), n - s)` or a sign-flipped `R` cannot be accepted.
 - **Strict validation:** signatures must be exactly 64 bytes, `s < n`, and both `R` and `P` must decode to canonical even-`y` points in the prime-order subgroup. Low-order and mixed-order public keys are rejected.
 - **Parity bit handling:** `TwistedEdwards.decodePoint` tests `(bytes[32] & 1) == 1` rather than `bytes[32] == 1`, so that all odd parity byte values are decoded correctly.
@@ -309,9 +355,18 @@ MIT License. See [LICENSE](LICENSE).
 
 ## References
 
+### Curve and Edwards arithmetic
 - [SafeCurves](https://safecurves.cr.yp.to/)
+- [SafeCurves: Completeness](https://safecurves.cr.yp.to/complete.html)
+- [Bernstein–Lange, *Twisted Edwards Curves* (2008)](https://eprint.iacr.org/2008/013)
+- [Bernstein–Lange, *A complete set of addition laws for incomplete Edwards curves* (2009)](https://eprint.iacr.org/2009/580)
+- [Hisil–Wong–Carter–Dawson, *Twisted Edwards Curves Revisited* (2008)](https://eprint.iacr.org/2008/522)
+- [Edwards, *A normal form for elliptic curves* (2007)](https://www.ams.org/journals/bull/2007-44-03/S0273-0979-07-01153-6/)
+
+### Protocols and primitives
 - [RFC 7748](https://www.rfc-editor.org/rfc/rfc7748): Elliptic Curves for Diffie-Hellman
 - [RFC 8032](https://www.rfc-editor.org/rfc/rfc8032): Edwards-Curve Digital Signature Algorithm
 - [RFC 9380](https://www.rfc-editor.org/rfc/rfc9380): Hashing to Elliptic Curves (Elligator 2)
 - [RFC 5869](https://www.rfc-editor.org/rfc/rfc5869): HKDF
+- [Signal XEdDSA specification](https://signal.org/docs/specifications/xeddsa/)
 - [NIST SP 800-38D](https://csrc.nist.gov/publications/detail/sp/800-38d/final): AES-GCM

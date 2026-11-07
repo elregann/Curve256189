@@ -1,5 +1,21 @@
-## Unreleased
+## 1.0.0-beta.4
 
+- Edwards: added `DualEdwards`, the complete twisted Edwards model
+  `E_{d,a}: d u² + v² = 1 + a u² v²`. For Curve256189, `a' = d` is a square
+  and `d' = a` is a non-square, so its standard addition law has no exceptional
+  cases.
+- Edwards: `TwistedEdwards.add` now evaluates the sum on `E_{d,a}` through the
+  involution `Phi(x, y) = (-x, 1/y)` and maps back. This fixes the incomplete
+  addition law on the natural model `E_{a,d}`, including pairs whose difference
+  is an order-4 point. A sum that is itself one of the two order-4 points has
+  no affine coordinates and is reported with a `StateError` instead of a bogus
+  result.
+- Tests: added dual-curve completeness checks, map round-trips (including
+  order-2 and order-4 points), the previously failing difference-of-order-4
+  cases, the non-representable order-4 sum, and a randomised mixed-order
+  comparison against Montgomery arithmetic.
+- Docs: documented the Edwards/dual-curve construction and added Edwards
+  completeness references (Bernstein–Lange, Hisil et al., SafeCurves).
 - Tests: replaced the print-based scripts in `dev/` with a real `package:test`
   suite in `test/` (`dart test`). Every check is an assertion, known answers
   were computed independently in Python, and randomised checks are tagged

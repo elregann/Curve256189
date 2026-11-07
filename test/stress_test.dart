@@ -56,6 +56,48 @@ void main() {
     }
   });
 
+  test('dual curve addition is complete on random mixed-order points', () {
+    final rng = Random(7);
+    final order2 = MontgomeryPoint(BigInt.zero, BigInt.zero);
+    for (var i = 0; i < 60; i++) {
+      final a = _randomBelow(rng, n) + BigInt.one;
+      final b = _randomBelow(rng, n) + BigInt.one;
+      var p1 = Montgomery.scalarMulFull(a, MontgomeryPoint.G);
+      var p2 = Montgomery.scalarMulFull(b, MontgomeryPoint.G);
+      if (rng.nextBool()) p1 = Montgomery.add(p1, order2);
+      if (rng.nextBool()) p2 = Montgomery.add(p2, order2);
+
+      final expected = TwistedEdwards.fromMontgomery(Montgomery.add(p1, p2));
+
+      final got = TwistedEdwards.add(
+        TwistedEdwards.fromMontgomery(p1),
+        TwistedEdwards.fromMontgomery(p2),
+      );
+      expect(got.x, expected.x, reason: 'i=$i');
+      expect(got.y, expected.y, reason: 'i=$i');
+
+      final mapped = DualEdwards.toTwistedEdwards(DualEdwards.add(
+        DualEdwards.fromMontgomery(p1),
+        DualEdwards.fromMontgomery(p2),
+      ));
+      expect(mapped.x, expected.x, reason: 'i=$i');
+      expect(mapped.y, expected.y, reason: 'i=$i');
+    }
+  });
+
+  test('Phi commutes with scalar multiplication', () {
+    final rng = Random(8);
+    final phiG = DualEdwards.fromTwistedEdwards(gEd);
+    for (var i = 0; i < 10; i++) {
+      final k = _randomBelow(rng, n) + BigInt.one;
+      final expected =
+          DualEdwards.fromTwistedEdwards(TwistedEdwards.scalarMul(k, gEd));
+      final got = DualEdwards.scalarMul(k, phiG);
+      expect(got.x, expected.x, reason: 'i=$i k=$k');
+      expect(got.y, expected.y, reason: 'i=$i k=$k');
+    }
+  });
+
   test('blinded ladder agrees with the unblinded ladder', () {
     final rng = Random(2);
     for (var i = 0; i < 50; i++) {

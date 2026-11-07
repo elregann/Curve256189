@@ -112,47 +112,33 @@ class TwistedEdwards {
 
   // Twisted Edwards point addition.
   //
-  // Note: this curve does not satisfy the completeness condition for the
-  // twisted Edwards addition law. The exceptional inputs (points of order 4)
-  // are rejected explicitly instead of silently producing invalid results.
+  // E_{a,d} is not one of the twisted Edwards curves for which the standard
+  // addition law is complete. Its two order-4 points lie at infinity in this
+  // affine chart, and the formula fails when the difference of the inputs is
+  // one of them (the old implementation rejected those sums), or when their
+  // sum is one of them (that sum has no affine result).
+  //
+  // We therefore evaluate the sum on the dual curve E_{d,a}, where the
+  // standard addition law is complete, using the group isomorphism
+  //
+  //     Phi(x, y) = (-x, 1/y) : E_{a,d} -> E_{d,a}.
+  //
+  // Since Phi is an involution,
+  //
+  //     P + Q = Phi( Phi(P) + Phi(Q) ).
+  //
+  // The only case that cannot be represented in this affine chart is when the
+  // true sum is one of the two order-4 points: those have no affine (x, y)
+  // coordinates on E_{a,d}, so the final map back reports it explicitly.
   static EdwardsPoint add(EdwardsPoint P, EdwardsPoint Q) {
     if (P.isIdentity) return Q;
     if (Q.isIdentity) return P;
 
-    final x1 = P.x;
-    final y1 = P.y;
-    final x2 = Q.x;
-    final y2 = Q.y;
-
-    final x1y2 = FieldElement.mul(x1, y2);
-    final y1x2 = FieldElement.mul(y1, x2);
-    final y1y2 = FieldElement.mul(y1, y2);
-    final x1x2 = FieldElement.mul(x1, x2);
-    final x1x2y1y2 = FieldElement.mul(x1x2, y1y2);
-    final dx1x2y1y2 = FieldElement.mul(d, x1x2y1y2);
-
-    final denX = FieldElement.add(BigInt.one, dx1x2y1y2);
-    final denY = FieldElement.sub(BigInt.one, dx1x2y1y2);
-    if (denX == BigInt.zero || denY == BigInt.zero) {
-      throw StateError(
-        'TwistedEdwards.add is incomplete for this input '
-        '(points of order 4)',
-      );
-    }
-
-    // x3 = (x1y2 + y1x2) / (1 + dx1x2y1y2)
-    final x3 = FieldElement.mul(
-      FieldElement.add(x1y2, y1x2),
-      FieldElement.inv(denX),
+    final dualSum = DualEdwards.add(
+      DualEdwards.fromTwistedEdwards(P),
+      DualEdwards.fromTwistedEdwards(Q),
     );
-
-    // y3 = (y1y2 - a*x1x2) / (1 - dx1x2y1y2)
-    final y3 = FieldElement.mul(
-      FieldElement.sub(y1y2, FieldElement.mul(a, x1x2)),
-      FieldElement.inv(denY),
-    );
-
-    return EdwardsPoint(x3, y3);
+    return DualEdwards.toTwistedEdwards(dualSum);
   }
 
   static EdwardsPoint negate(EdwardsPoint P) {
@@ -238,5 +224,236 @@ class TwistedEdwards {
       result = result | (BigInt.from(bytes[i]) << (8 * i));
     }
     return result;
+  }
+}
+
+// Complete twisted Edwards layer for Curve256189.
+//
+// The natural Edwards form of Curve256189 is
+//
+//     E_{a,d}: a x² + y² = 1 + d x² y²,
+//     a = A + 2 = 479599,  d = A - 2 = 479595.
+//
+// Here a is a quadratic non-residue and d is a quadratic residue, so the
+// standard addition law on E_{a,d} is incomplete: it fails when the difference
+// of the inputs is one of the two order-4 points (they are at infinity in the
+// affine chart), and when their sum is one of them.
+//
+// Swapping the coefficients gives the dual curve
+//
+//     E_{d,a}: d u² + v² = 1 + a u² v².
+//
+// On E_{d,a} the coefficient of u² is d (a square) and the coefficient of
+// u²v² is a (a non-square). This is exactly the Bernstein-Lange completeness
+// condition, so the standard addition law is complete on E_{d,a}.
+//
+// The two curves are isomorphic through the involution
+//
+//     Phi(x, y) = (-x, 1/y) : E_{a,d} -> E_{d,a},
+//
+// which fixes the identity and satisfies
+//
+//     Phi(P + Q) = Phi(P) + Phi(Q).
+//
+// TwistedEdwards.add uses this map, so its only unrepresentable result is a sum
+// that is itself an order-4 point of E_{a,d}.
+//
+// Points in this class use EdwardsPoint with (x, y) interpreted as the dual
+// coordinates (u, v).
+class DualEdwards {
+  static final BigInt p = Curve256189Params.p;
+
+  // Coefficient of x² on E_{d,a}: a' = d (a quadratic residue).
+  static final BigInt a = TwistedEdwards.d;
+
+  // Coefficient of x²y² on E_{d,a}: d' = a (a quadratic non-residue).
+  static final BigInt d = TwistedEdwards.a;
+
+  // ---------------------------------------------------------------------
+  // Maps between the two Edwards models
+  // ---------------------------------------------------------------------
+
+  // Phi(x, y) = (-x, 1/y).
+  //
+  // Every affine point of E_{a,d} has y != 0 because a is a non-residue:
+  // y = 0 would require x² = 1/a, which has no solution over F_p.
+  static EdwardsPoint fromTwistedEdwards(EdwardsPoint P) {
+    if (P.y == BigInt.zero) {
+      throw ArgumentError('Edwards point with y = 0 is not on E_{a,d}');
+    }
+    return EdwardsPoint(
+      FieldElement.sub(BigInt.zero, P.x),
+      FieldElement.inv(P.y),
+    );
+  }
+
+  // Phi itself is an involution, so the inverse map has the same formula.
+  //
+  // A dual point with v = 0 is an order-4 point of E_{d,a}. Its preimage is an
+  // order-4 point of E_{a,d}, which has no affine coordinates and therefore
+  // cannot be represented by EdwardsPoint.
+  static EdwardsPoint toTwistedEdwards(EdwardsPoint P) {
+    if (P.y == BigInt.zero) {
+      throw StateError(
+        'the sum is an order-4 point at infinity in the affine E_{a,d} chart',
+      );
+    }
+    return EdwardsPoint(
+      FieldElement.sub(BigInt.zero, P.x),
+      FieldElement.inv(P.y),
+    );
+  }
+
+  // ---------------------------------------------------------------------
+  // Maps to and from the Montgomery curve
+  // ---------------------------------------------------------------------
+
+  // Montgomery (x, y) -> dual Edwards (u, v) = (-x/y, (x+1)/(x-1)).
+  //
+  // This is the composition Phi o (Montgomery -> E_{a,d}), extended so that
+  // the order-2 point maps to (0, -1) and the order-4 points map to v = 0.
+  static EdwardsPoint fromMontgomery(MontgomeryPoint P) {
+    if (P.isInfinity) return EdwardsPoint.infinity();
+
+    if (P.y == BigInt.zero) {
+      // Only (0, 0) has y = 0 on this curve; it is the order-2 point.
+      if (P.x == BigInt.zero) {
+        return EdwardsPoint(
+          BigInt.zero,
+          FieldElement.sub(BigInt.zero, BigInt.one),
+        );
+      }
+      throw ArgumentError('invalid Montgomery point with y = 0');
+    }
+
+    // The dual chart needs x - 1 invertible. No F_p point has x = 1 because
+    // rhs(1) = A + 2 = a is a non-square.
+    if (P.x == BigInt.one) {
+      throw StateError('Montgomery point with x = 1 is exceptional');
+    }
+
+    final u = FieldElement.sub(
+      BigInt.zero,
+      FieldElement.mul(P.x, FieldElement.inv(P.y)),
+    );
+    final v = FieldElement.mul(
+      FieldElement.add(P.x, BigInt.one),
+      FieldElement.inv(FieldElement.sub(P.x, BigInt.one)),
+    );
+    return EdwardsPoint(u, v);
+  }
+
+  // Dual Edwards (u, v) -> Montgomery (x, y) = ((1+v)/(v-1), -x/u).
+  static MontgomeryPoint toMontgomery(EdwardsPoint P) {
+    if (P.isIdentity) return MontgomeryPoint.infinity();
+
+    if (P.x == BigInt.zero) {
+      // On E_{d,a}, x = 0 gives y = ±1. y = 1 is the identity (handled
+      // above); y = -1 is the order-2 point.
+      if (P.y == FieldElement.sub(BigInt.zero, BigInt.one)) {
+        return MontgomeryPoint(BigInt.zero, BigInt.zero);
+      }
+      throw ArgumentError('invalid dual Edwards point with x = 0');
+    }
+
+    final vMinusOne = FieldElement.sub(P.y, BigInt.one);
+    if (vMinusOne == BigInt.zero) {
+      throw StateError('dual Edwards point with y = 1 is exceptional');
+    }
+
+    final x = FieldElement.mul(
+      FieldElement.add(BigInt.one, P.y),
+      FieldElement.inv(vMinusOne),
+    );
+    final y = FieldElement.mul(
+      FieldElement.sub(BigInt.zero, x),
+      FieldElement.inv(P.x),
+    );
+    return MontgomeryPoint(x, y);
+  }
+
+  // Point validation: d x² + y² = 1 + a x²y².
+  static bool isOnCurve(EdwardsPoint P) {
+    final x2 = FieldElement.mul(P.x, P.x);
+    final y2 = FieldElement.mul(P.y, P.y);
+
+    final left = FieldElement.add(FieldElement.mul(a, x2), y2);
+    final right = FieldElement.add(
+      BigInt.one,
+      FieldElement.mul(d, FieldElement.mul(x2, y2)),
+    );
+
+    return left == right;
+  }
+
+  // ---------------------------------------------------------------------
+  // Complete group law
+  // ---------------------------------------------------------------------
+
+  // Standard twisted Edwards addition law on E_{d,a}.
+  //
+  // Because a' = d is a square and d' = a is a non-square, the two
+  // denominators below never vanish for points on the curve. This includes
+  // doubling and every mixed-order pair, so unlike the E_{a,d} formula this
+  // one needs no exceptional-case branching.
+  static EdwardsPoint add(EdwardsPoint P, EdwardsPoint Q) {
+    if (P.isIdentity) return Q;
+    if (Q.isIdentity) return P;
+
+    final x1 = P.x;
+    final y1 = P.y;
+    final x2 = Q.x;
+    final y2 = Q.y;
+
+    final x1x2 = FieldElement.mul(x1, x2);
+    final y1y2 = FieldElement.mul(y1, y2);
+    final t = FieldElement.mul(d, FieldElement.mul(x1x2, y1y2));
+
+    final denX = FieldElement.add(BigInt.one, t);
+    final denY = FieldElement.sub(BigInt.one, t);
+
+    // Defensive check for off-curve inputs. For valid points these are
+    // guaranteed non-zero by the completeness condition.
+    if (denX == BigInt.zero || denY == BigInt.zero) {
+      throw StateError('DualEdwards.add received an off-curve input');
+    }
+
+    // x3 = (x1y2 + y1x2) / (1 + d x1x2y1y2)
+    final x3 = FieldElement.mul(
+      FieldElement.add(
+        FieldElement.mul(x1, y2),
+        FieldElement.mul(y1, x2),
+      ),
+      FieldElement.inv(denX),
+    );
+
+    // y3 = (y1y2 - a x1x2) / (1 - d x1x2y1y2)
+    final y3 = FieldElement.mul(
+      FieldElement.sub(y1y2, FieldElement.mul(a, x1x2)),
+      FieldElement.inv(denY),
+    );
+
+    return EdwardsPoint(x3, y3);
+  }
+
+  static EdwardsPoint negate(EdwardsPoint P) {
+    if (P.isIdentity) return EdwardsPoint.infinity();
+    return EdwardsPoint(FieldElement.sub(BigInt.zero, P.x), P.y);
+  }
+
+  // Scalar multiplication routed through full-point Montgomery arithmetic.
+  // This handles the order-4 points of E_{d,a} (which have v = 0) as well.
+  static EdwardsPoint scalarMul(BigInt k, EdwardsPoint P) {
+    if (k == BigInt.zero || P.isIdentity) return EdwardsPoint.infinity();
+    if (k < BigInt.zero) {
+      return scalarMul(-k, negate(P));
+    }
+
+    final montP = toMontgomery(P);
+    if (montP.isInfinity) return EdwardsPoint.infinity();
+
+    final result = Montgomery.scalarMulFull(k, montP);
+    if (result.isInfinity) return EdwardsPoint.infinity();
+    return fromMontgomery(result);
   }
 }

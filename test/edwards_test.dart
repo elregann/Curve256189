@@ -186,4 +186,163 @@ void main() {
       }
     });
   });
+
+  group('dual curve E_{d,a} (complete addition)', () {
+    final order2Mont = MontgomeryPoint(BigInt.zero, BigInt.zero);
+    final order4Mont = MontgomeryPoint(
+      p - BigInt.one,
+      Montgomery.yFromX(p - BigInt.one)!,
+    );
+    final order4Dual = DualEdwards.fromMontgomery(order4Mont);
+    final phiG = DualEdwards.fromTwistedEdwards(gEd);
+
+    test("coefficients are swapped: a' = d, d' = a", () {
+      expect(DualEdwards.a, Curve256189Params.d);
+      expect(DualEdwards.d, Curve256189Params.aEd);
+      expect(DualEdwards.a, BigInt.from(479595));
+      expect(DualEdwards.d, BigInt.from(479599));
+    });
+
+    test('Phi(G) matches the independently computed known answer', () {
+      expect(
+        phiG.x,
+        big('53337483776574121880228283251463121360079594963357721179399899047767155401532'),
+      );
+      expect(
+        phiG.y,
+        big('21144950316113725397411922104381196038813364727988489074614189046398240269447'),
+      );
+    });
+
+    test('Phi is an involution and preserves the curve', () {
+      expect(DualEdwards.isOnCurve(phiG), isTrue);
+      expect(_same(DualEdwards.toTwistedEdwards(phiG), gEd), isTrue);
+      for (var k = 1; k <= 10; k++) {
+        final point = TwistedEdwards.scalarMul(BigInt.from(k), gEd);
+        final dual = DualEdwards.fromTwistedEdwards(point);
+        expect(DualEdwards.isOnCurve(dual), isTrue, reason: 'k=$k');
+        expect(_same(DualEdwards.toTwistedEdwards(dual), point), isTrue,
+            reason: 'k=$k');
+      }
+    });
+
+    test('Montgomery maps round-trip, including order-2 and order-4 points',
+        () {
+      final points = <MontgomeryPoint>[
+        MontgomeryPoint.G,
+        Montgomery.double_(MontgomeryPoint.G),
+        Montgomery.add(MontgomeryPoint.G, order2Mont),
+        order2Mont,
+        order4Mont,
+        Montgomery.negate(order4Mont),
+      ];
+      for (final point in points) {
+        final dual = DualEdwards.fromMontgomery(point);
+        expect(DualEdwards.isOnCurve(dual), isTrue);
+        final back = DualEdwards.toMontgomery(dual);
+        expect(back.x, point.x);
+        expect(back.y, point.y);
+      }
+      expect(
+        DualEdwards.fromMontgomery(MontgomeryPoint.infinity()).isIdentity,
+        isTrue,
+      );
+      expect(
+        DualEdwards.toMontgomery(EdwardsPoint.infinity()).isInfinity,
+        isTrue,
+      );
+    });
+
+    test('order-4 point has v = 0 and doubles to the order-2 point', () {
+      expect(order4Dual.y, BigInt.zero);
+      expect(DualEdwards.isOnCurve(order4Dual), isTrue);
+      final twice = DualEdwards.add(order4Dual, order4Dual);
+      expect(twice.x, BigInt.zero);
+      expect(twice.y, p - BigInt.one);
+    });
+
+    test('addition is complete for every mixed-order pair in a grid', () {
+      final montPoints = <MontgomeryPoint>[];
+      for (var k = 0; k <= 10; k++) {
+        final kG =
+            Montgomery.scalarMulFull(BigInt.from(k), MontgomeryPoint.G);
+        montPoints.add(kG);
+        montPoints.add(Montgomery.add(kG, order2Mont));
+      }
+      final edPoints =
+          montPoints.map(TwistedEdwards.fromMontgomery).toList();
+      final dualPoints = montPoints.map(DualEdwards.fromMontgomery).toList();
+
+      for (var i = 0; i < montPoints.length; i++) {
+        for (var j = 0; j < montPoints.length; j++) {
+          final expected = TwistedEdwards.fromMontgomery(
+              Montgomery.add(montPoints[i], montPoints[j]));
+
+          final dualSum = DualEdwards.add(dualPoints[i], dualPoints[j]);
+          expect(
+            _same(DualEdwards.toTwistedEdwards(dualSum), expected),
+            isTrue,
+            reason: 'dual i=$i j=$j',
+          );
+
+          final sum = TwistedEdwards.add(edPoints[i], edPoints[j]);
+          expect(_same(sum, expected), isTrue, reason: 'twisted i=$i j=$j');
+        }
+      }
+    });
+
+    test('TwistedEdwards.add handles a difference of order 4', () {
+      // The old law fails when Q - P is one of the two order-4 points.
+      // Their sum is still affine, so the dual-curve route must succeed.
+      for (final k in [1, 2, 3, 5, 7]) {
+        final point = Montgomery.scalarMulFull(BigInt.from(k), MontgomeryPoint.G);
+        final other = Montgomery.add(point, order4Mont);
+        expect(
+          Montgomery.add(other, Montgomery.negate(point)).x,
+          p - BigInt.one,
+        );
+        final expected = TwistedEdwards.fromMontgomery(
+            Montgomery.add(point, other));
+        final got = TwistedEdwards.add(
+          TwistedEdwards.fromMontgomery(point),
+          TwistedEdwards.fromMontgomery(other),
+        );
+        expect(_same(got, expected), isTrue, reason: 'k=$k');
+      }
+    });
+
+    test('a sum that is an order-4 point is reported, not miscomputed', () {
+      // Q = T - G, so G + Q = T is one of the two points at infinity in the
+      // affine E_{a,d} chart. There is no affine EdwardsPoint for it.
+      final other =
+          Montgomery.add(order4Mont, Montgomery.negate(MontgomeryPoint.G));
+      final edOther = TwistedEdwards.fromMontgomery(other);
+      expect(() => TwistedEdwards.add(gEd, edOther), throwsStateError);
+
+      // The dual layer itself still evaluates the sum without exception;
+      // the result is the dual order-4 point with v = 0.
+      final dualSum = DualEdwards.add(
+        DualEdwards.fromTwistedEdwards(gEd),
+        DualEdwards.fromTwistedEdwards(edOther),
+      );
+      expect(dualSum.y, BigInt.zero);
+      expect(DualEdwards.isOnCurve(dualSum), isTrue);
+    });
+
+    test('dual scalar multiplication, including order 4', () {
+      expect(_same(DualEdwards.scalarMul(n, phiG), EdwardsPoint.infinity()),
+          isTrue);
+      final twice = DualEdwards.scalarMul(BigInt.two, order4Dual);
+      expect(twice.x, BigInt.zero);
+      expect(twice.y, p - BigInt.one);
+
+      for (var k = 1; k <= 8; k++) {
+        final expected = DualEdwards.fromTwistedEdwards(
+            TwistedEdwards.scalarMul(BigInt.from(k), gEd));
+        expect(_same(DualEdwards.scalarMul(BigInt.from(k), phiG), expected),
+            isTrue,
+            reason: 'k=$k');
+      }
+    });
+  });
 }
