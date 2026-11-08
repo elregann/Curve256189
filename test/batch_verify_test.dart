@@ -65,7 +65,8 @@ void main() {
 
     test('agrees with individual verification', () {
       final ten = List.generate(10, (i) => _bundle(i * 7 + 1, 'Command $i'));
-      expect(ten.every((b) => XEdDSA.verify(b.message, b.signature, b.publicKey)),
+      expect(
+          ten.every((b) => XEdDSA.verify(b.message, b.signature, b.publicKey)),
           isTrue);
       expect(BatchVerify.verify(ten), isTrue);
     });
@@ -87,7 +88,8 @@ void main() {
 
     test('wrong message and wrong public key', () {
       expect(
-          BatchVerify.verify([_with(b1, message: bytesOf('Wrong message!')), b2]),
+          BatchVerify.verify(
+              [_with(b1, message: bytesOf('Wrong message!')), b2]),
           isFalse);
       expect(BatchVerify.verify([_with(b1, publicKey: b2.publicKey), b2]),
           isFalse);
@@ -113,7 +115,8 @@ void main() {
     final s = XEdDSA.decodeLittleEndian(b1.signature.sublist(32));
 
     test('(x(R), n - s)', () {
-      final sig = Uint8List.fromList([...xR, ...XEdDSA.encodeScalar((n - s) % n)]);
+      final sig =
+          Uint8List.fromList([...xR, ...XEdDSA.encodeScalar((n - s) % n)]);
       expect(BatchVerify.verify([_with(b1, signature: sig), b2]), isFalse);
     });
 
@@ -142,13 +145,107 @@ void main() {
     test('low-order public key and low-order R', () {
       expect(BatchVerify.verify([_with(b1, publicKey: Uint8List(32)), b2]),
           isFalse);
-      final lowR = Uint8List.fromList([...Uint8List(32), ...b1.signature.sublist(32)]);
+      final lowR =
+          Uint8List.fromList([...Uint8List(32), ...b1.signature.sublist(32)]);
       expect(BatchVerify.verify([_with(b1, signature: lowR), b2]), isFalse);
+    });
+
+    test('mixed-order public key', () {
+      final mixed = Montgomery.add(
+        MontgomeryPoint.G,
+        MontgomeryPoint(BigInt.zero, BigInt.zero),
+      );
+      expect(
+        BatchVerify.verify([
+          _with(b1, publicKey: encodeLE32(mixed.x)),
+          b2,
+        ]),
+        isFalse,
+      );
     });
 
     test('all-zero signature', () {
       expect(BatchVerify.verify([_with(b1, signature: Uint8List(64)), b2]),
           isFalse);
+    });
+  });
+
+  group('batch and individual agree', () {
+    final valid = [b1, b2, b3];
+    final s1 = XEdDSA.decodeLittleEndian(b1.signature.sublist(32));
+
+    final variants = <String, SignatureBundle>{
+      'valid': b1,
+      'wrong message': _with(b1, message: bytesOf('Wrong message!')),
+      'tampered signature': _with(
+        b1,
+        signature: Uint8List.fromList(b1.signature)..[7] ^= 0x04,
+      ),
+      'wrong public key': _with(b1, publicKey: b2.publicKey),
+      's >= n': _with(
+        b1,
+        signature: Uint8List.fromList([
+          ...b1.signature.sublist(0, 32),
+          ...encodeLE32(s1 + n),
+        ]),
+      ),
+      'low-order public key': _with(b1, publicKey: Uint8List(32)),
+      'low-order R': _with(
+        b1,
+        signature: Uint8List.fromList([
+          ...Uint8List(32),
+          ...b1.signature.sublist(32),
+        ]),
+      ),
+      'short signature': _with(b1, signature: b1.signature.sublist(0, 63)),
+    };
+
+    for (final entry in variants.entries) {
+      for (var position = 0; position < valid.length; position++) {
+        test('${entry.key} at position $position', () {
+          final batch = List<SignatureBundle>.from(valid);
+          batch[position] = entry.value;
+
+          final individual = batch.every(
+            (b) => XEdDSA.verify(b.message, b.signature, b.publicKey),
+          );
+          expect(BatchVerify.verify(batch), individual,
+              reason: '${entry.key} at position $position');
+        });
+      }
+    }
+  });
+
+  group('scale and stability', () {
+    test('large batch of 20 signatures', () {
+      final twenty = List.generate(20, (i) => _bundle(i * 3 + 1, 'Large $i'));
+
+      expect(
+        twenty.every(
+          (b) => XEdDSA.verify(b.message, b.signature, b.publicKey),
+        ),
+        isTrue,
+      );
+      expect(BatchVerify.verify(twenty), isTrue);
+
+      final bad = List<SignatureBundle>.from(twenty);
+      bad[13] = _with(bad[13], message: bytesOf('tampered'));
+      expect(BatchVerify.verify(bad), isFalse);
+    });
+
+    test('repeated randomized runs are stable', () {
+      for (var i = 0; i < 5; i++) {
+        expect(BatchVerify.verify([b1, b2, b3]), isTrue, reason: 'run=$i');
+      }
+
+      final tampered = _with(
+        b1,
+        signature: Uint8List.fromList(b1.signature)..[0] ^= 0x01,
+      );
+      for (var i = 0; i < 5; i++) {
+        expect(BatchVerify.verify([tampered, b2, b3]), isFalse,
+            reason: 'run=$i');
+      }
     });
   });
 }

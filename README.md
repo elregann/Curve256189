@@ -6,7 +6,7 @@ A pure-Dart elliptic curve cryptography library built on **Curve256189**, a Mont
 
 Curve256189 was designed and implemented by Ismael Urzaiz Aranda. It satisfies all eleven [SafeCurves](https://safecurves.cr.yp.to/) criteria (11/11), verified with SageMath (`tool/safecurves_curve256189.sage`). The library provides X256189 (ECDH), Ed256189 (RFC 8032-shaped EdDSA signatures), XEdDSA (superseded signatures), Elligator 2 (point encoding), HKDF, and AES-GCM, all implemented in Dart. Its Edwards layer uses the dual complete curve E_{d,a}, so affine Edwards addition has no exceptional inputs.
 
-Ed256189 is specified in [doc/ed256189.md](doc/ed256189.md). XEdDSA is kept for backwards compatibility and is marked superseded; it will be removed in a future major release.
+Ed256189 is specified in [doc/ed256189.md](doc/ed256189.md). XEdDSA is specified in [doc/xeddsa.md](doc/xeddsa.md); it is kept for backwards compatibility and is marked superseded. It will be removed in a future major release.
 
 ---
 
@@ -76,7 +76,7 @@ The full parameter set, including the subgroup orders n and nᵗ and the generat
 | **Elligator 2** | Point encoding and decoding per RFC 9380 |
 | **HKDF** | Key derivation per RFC 5869 |
 | **AES-GCM** | Authenticated encryption per NIST SP 800-38D |
-| **Batch Verify** | High-throughput batch verification of XEdDSA signatures (Ed256189 has no batch verifier yet) |
+| **Batch Verify** | Batch verification of XEdDSA signatures with strict per-input validation (Ed256189 has no batch verifier yet; multi-scalar multiplication is not yet optimised) |
 
 ---
 
@@ -256,9 +256,20 @@ final signature = XEdDSA.sign(message, keyPair['privateKey']!);
 
 // Verify
 final valid = XEdDSA.verify(message, signature, keyPair['publicKey']!);
+
+// Derive the public key without generating the full key pair
+final publicKey = XEdDSA.publicKeyFromSeed(seed);
 ```
 
-Batch verification uses the same 64-byte signatures and 32-byte public keys:
+XEdDSA is specified in [doc/xeddsa.md](doc/xeddsa.md). It is an x-only
+Montgomery profile, not a wire-compatible implementation of Signal XEdDSA.
+Its public keys are identical to X256189 keys derived from the same seed.
+
+Batch verification uses the same 64-byte signatures and 32-byte public keys.
+Every entry is validated with the same parser as individual verification. Note
+that multi-scalar multiplication is currently a loop of independent scalar
+multiplications, so batch verification is not yet faster than verifying the
+same signatures individually:
 
 ```dart
 final ok = BatchVerify.verify([
@@ -349,8 +360,9 @@ dart test test/xeddsa_test.dart
 | `test/eddsa256189_test.dart` | Ed256189 vectors, point encoding, subgroup validation, malformed signatures and keys |
 | `test/elligator_test.dart` | test vectors, RFC 9380 exceptional case, decode |
 | `test/x256189_test.dart` | ECDH vectors, invalid and twist public keys |
-| `test/xeddsa_test.dart` | signature vectors, malleability, invalid inputs |
-| `test/batch_verify_test.dart` | batch verification, malformed entries |
+| `test/xeddsa_test.dart` | independent vectors, anchor regression, malleability, invalid inputs, protocol separation |
+| `test/xeddsa_vectors.dart` | generated XEdDSA known-answer vectors (do not edit by hand) |
+| `test/batch_verify_test.dart` | batch versus individual agreement, malformed entries, scale and stability |
 | `test/hkdf_test.dart` | RFC 5869 vectors |
 | `test/aesgcm_test.dart` | NIST vectors, tamper and AAD checks |
 | `test/stress_test.dart` | randomised checks (tag `slow`) |
@@ -364,6 +376,8 @@ sage tool/find_prime.sage
 dart run tool/twist_analysis.dart
 dart run tool/mov_analysis.dart
 dart run tool/benchmark.dart
+python tool/xeddsa_vectors.py --dart test/xeddsa_vectors.dart
+python tool/ed256189_vectors.py --dart test/ed256189_vectors.dart
 ```
 
 ---

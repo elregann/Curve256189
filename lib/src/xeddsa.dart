@@ -24,14 +24,25 @@ import 'package:crypto/crypto.dart';
 
 import 'montgomery.dart';
 import 'params.dart';
+import 'xeddsa_internal.dart';
+
+// Secret key material derived from a seed. The prefix is the second half of
+// SHA-512(seed) and is used only for deterministic nonce derivation.
+class _KeyMaterial {
+  final BigInt scalar;
+  final MontgomeryPoint point;
+  final Uint8List prefix;
+
+  const _KeyMaterial(this.scalar, this.point, this.prefix);
+}
 
 class XEdDSA {
   static final BigInt p = Curve256189Params.p;
   static final BigInt n = Curve256189Params.n;
 
   static const int seedLength = 32;
-  static const int publicKeyLength = 32;
-  static const int signatureLength = 64;
+  static const int publicKeyLength = xeddsaPublicKeyLength;
+  static const int signatureLength = xeddsaSignatureLength;
 
   static const int _nonceTag = 0x01;
   static const int _challengeTag = 0x02;
@@ -132,26 +143,38 @@ class XEdDSA {
     return [adjusted, Montgomery.negate(point)];
   }
 
-  static List<Object> _keyMaterial(Uint8List seed) {
+  // Expand the seed once and return everything signing needs: the canonical
+  // even-y scalar, the canonical even-y public point, and the nonce prefix.
+  static _KeyMaterial _keyMaterial(Uint8List seed) {
     final expanded = _expandSeed(seed);
     final a0 = expanded[0] as BigInt;
+    final prefix = expanded[1] as Uint8List;
 
     final p0 = Montgomery.scalarMulFull(a0, _basePoint, blind: true);
     final canonical = _canonicalise(a0, p0);
 
-    return [canonical[0] as BigInt, canonical[1] as MontgomeryPoint];
+    return _KeyMaterial(
+      canonical[0] as BigInt,
+      canonical[1] as MontgomeryPoint,
+      prefix,
+    );
   }
 
   // Generate a key pair from a 32-byte seed.
   // Returns {privateKey: 32-byte seed, publicKey: 32-byte x(P)}.
   static Map<String, Uint8List> generateKeyPair(Uint8List seed) {
-    final material = _keyMaterial(seed);
-    final P = material[1] as MontgomeryPoint;
+    final P = _keyMaterial(seed).point;
 
     return {
       'privateKey': Uint8List.fromList(seed),
       'publicKey': _encodeX(P.x),
     };
+  }
+
+  // Derive the 32-byte public key from a seed without exposing the secret
+  // scalar or the nonce prefix.
+  static Uint8List publicKeyFromSeed(Uint8List seed) {
+    return _encodeX(_keyMaterial(seed).point.x);
   }
 
   // ---------------------------------------------------------------------
@@ -208,11 +231,9 @@ class XEdDSA {
     _checkSeed(privateKey);
 
     final material = _keyMaterial(privateKey);
-    final a = material[0] as BigInt;
-    final P = material[1] as MontgomeryPoint;
-
-    final expanded = _expandSeed(privateKey);
-    final prefix = expanded[1] as Uint8List;
+    final a = material.scalar;
+    final P = material.point;
+    final prefix = material.prefix;
 
     final r0 = _deriveNonce(prefix, message);
     final r0Point = Montgomery.scalarMulFull(r0, _basePoint, blind: true);
@@ -238,31 +259,14 @@ class XEdDSA {
     Uint8List signature,
     Uint8List publicKey,
   ) {
-    if (signature.length != signatureLength) return false;
-    if (publicKey.length != publicKeyLength) return false;
+    final input = parseXEdDSAInput(signature, publicKey);
+    if (input == null) return false;
 
-    final xR = Uint8List.fromList(signature.sublist(0, 32));
-    final s = decodeLittleEndian(Uint8List.fromList(signature.sublist(32, 64)));
+    final h = challengeFor(input.xR, publicKey, message);
 
-    // s must be canonical.
-    if (s >= n) return false;
-
-    // Decode R and P as canonical even-y points.
-    final xRInt = decodeLittleEndian(xR);
-    final R = Montgomery.pointFromX(xRInt, evenY: true);
-    if (R == null) return false;
-    if (!Montgomery.isInPrimeOrderSubgroup(R)) return false;
-
-    final xPInt = decodeLittleEndian(publicKey);
-    final P = Montgomery.pointFromX(xPInt, evenY: true);
-    if (P == null) return false;
-    if (!Montgomery.isInPrimeOrderSubgroup(P)) return false;
-
-    final h = challengeFor(xR, publicKey, message);
-
-    final left = Montgomery.scalarMulFull(s, _basePoint);
-    final hP = Montgomery.scalarMulFull(h, P);
-    final right = Montgomery.add(R, hP);
+    final left = Montgomery.scalarMulFull(input.s, _basePoint);
+    final hP = Montgomery.scalarMulFull(h, input.P);
+    final right = Montgomery.add(input.R, hP);
 
     return Montgomery.pointsEqual(left, right);
   }

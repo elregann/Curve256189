@@ -5,6 +5,7 @@ import 'package:curve256189/curve256189.dart';
 import 'package:test/test.dart';
 
 import 'helpers.dart';
+import 'xeddsa_vectors.dart';
 
 void main() {
   final n = Curve256189Params.n;
@@ -31,6 +32,45 @@ void main() {
       expect(() => XEdDSA.generateKeyPair(Uint8List(31)), throwsArgumentError);
       expect(() => XEdDSA.generateKeyPair(Uint8List(33)), throwsArgumentError);
       expect(() => XEdDSA.sign(message, Uint8List(31)), throwsArgumentError);
+      expect(
+          () => XEdDSA.publicKeyFromSeed(Uint8List(31)), throwsArgumentError);
+      expect(
+          () => XEdDSA.publicKeyFromSeed(Uint8List(33)), throwsArgumentError);
+    });
+
+    test('publicKeyFromSeed matches generateKeyPair and X256189', () {
+      expect(XEdDSA.publicKeyFromSeed(seed), publicKey);
+      expect(XEdDSA.publicKeyFromSeed(seed),
+          X256189.generateKeyPair(seed)['publicKey']);
+    });
+  });
+
+  group('independent vectors', () {
+    test('16 vectors from the Python reference', () {
+      expect(xeddsaVectors, hasLength(16));
+
+      for (final vector in xeddsaVectors) {
+        final name = vector['name']!;
+        final vectorSeed = fromHex(vector['seed']!);
+        final vectorMessage = fromHex(vector['message']!);
+        final vectorPublicKey = fromHex(vector['publicKey']!);
+        final vectorSignature = fromHex(vector['signature']!);
+
+        expect(toHex(XEdDSA.publicKeyFromSeed(vectorSeed)), vector['publicKey'],
+            reason: name);
+        expect(toHex(XEdDSA.generateKeyPair(vectorSeed)['publicKey']!),
+            vector['publicKey'],
+            reason: name);
+        expect(toHex(X256189.generateKeyPair(vectorSeed)['publicKey']!),
+            vector['publicKey'],
+            reason: name);
+        expect(
+            toHex(XEdDSA.sign(vectorMessage, vectorSeed)), vector['signature'],
+            reason: name);
+        expect(XEdDSA.verify(vectorMessage, vectorSignature, vectorPublicKey),
+            isTrue,
+            reason: name);
+      }
     });
   });
 
@@ -67,7 +107,8 @@ void main() {
     test('empty, short and long messages', () {
       for (final m in [Uint8List(0), Uint8List(1), Uint8List(1000)]) {
         final sig = XEdDSA.sign(m, privateKey);
-        expect(XEdDSA.verify(m, sig, publicKey), isTrue, reason: 'len=${m.length}');
+        expect(XEdDSA.verify(m, sig, publicKey), isTrue,
+            reason: 'len=${m.length}');
       }
     });
 
@@ -102,8 +143,8 @@ void main() {
     test('random signatures are rejected', () {
       final rng = Random(7);
       for (var i = 0; i < 50; i++) {
-        final fake = Uint8List.fromList(
-            List.generate(64, (_) => rng.nextInt(256)));
+        final fake =
+            Uint8List.fromList(List.generate(64, (_) => rng.nextInt(256)));
         expect(XEdDSA.verify(message, fake, publicKey), isFalse);
       }
     });
@@ -131,24 +172,28 @@ void main() {
     });
 
     test('s = 0 and s = n are rejected', () {
-      expect(XEdDSA.verify(message, withSignature(xR, Uint8List(32)), publicKey),
+      expect(
+          XEdDSA.verify(message, withSignature(xR, Uint8List(32)), publicKey),
           isFalse);
-      expect(XEdDSA.verify(message, withSignature(xR, encodeLE32(n)), publicKey),
+      expect(
+          XEdDSA.verify(message, withSignature(xR, encodeLE32(n)), publicKey),
           isFalse);
     });
   });
 
   group('encoding and invalid inputs', () {
     test('wrong signature and public key lengths', () {
-      expect(XEdDSA.verify(message, signature.sublist(0, 63), publicKey),
+      expect(
+          XEdDSA.verify(message, signature.sublist(0, 63), publicKey), isFalse);
+      expect(
+          XEdDSA.verify(
+              message, Uint8List.fromList([...signature, 0]), publicKey),
           isFalse);
       expect(
-          XEdDSA.verify(message, Uint8List.fromList([...signature, 0]), publicKey),
-          isFalse);
-      expect(XEdDSA.verify(message, signature, publicKey.sublist(0, 31)),
-          isFalse);
+          XEdDSA.verify(message, signature, publicKey.sublist(0, 31)), isFalse);
       expect(
-          XEdDSA.verify(message, signature, Uint8List.fromList([...publicKey, 0])),
+          XEdDSA.verify(
+              message, signature, Uint8List.fromList([...publicKey, 0])),
           isFalse);
       expect(XEdDSA.verify(message, Uint8List(0), publicKey), isFalse);
     });
@@ -164,23 +209,73 @@ void main() {
 
     test('low-order R', () {
       final sBytes = signature.sublist(32);
-      expect(XEdDSA.verify(message, withSignature(Uint8List(32), sBytes), publicKey),
-          isFalse);
       expect(
           XEdDSA.verify(
-              message, withSignature(encodeLE32(p - BigInt.one), sBytes), publicKey),
+              message, withSignature(Uint8List(32), sBytes), publicKey),
+          isFalse);
+      expect(
+          XEdDSA.verify(message,
+              withSignature(encodeLE32(p - BigInt.one), sBytes), publicKey),
           isFalse);
     });
 
     test('x >= p in R or in the public key', () {
       final sBytes = signature.sublist(32);
-      expect(XEdDSA.verify(message, withSignature(encodeLE32(p), sBytes), publicKey),
+      expect(
+          XEdDSA.verify(
+              message, withSignature(encodeLE32(p), sBytes), publicKey),
           isFalse);
       expect(XEdDSA.verify(message, signature, encodeLE32(p)), isFalse);
     });
 
     test('all-zero signature', () {
       expect(XEdDSA.verify(message, Uint8List(64), publicKey), isFalse);
+    });
+
+    test('non-square x-coordinate is rejected', () {
+      // x = 3 has a non-square right-hand side on this curve.
+      final x3 = encodeLE32(BigInt.from(3));
+      expect(
+          XEdDSA.verify(
+              message, withSignature(x3, signature.sublist(32)), publicKey),
+          isFalse);
+      expect(XEdDSA.verify(message, signature, x3), isFalse);
+    });
+
+    test('x = p + 1 is rejected', () {
+      final xp1 = encodeLE32(p + BigInt.one);
+      expect(
+          XEdDSA.verify(
+              message, withSignature(xp1, signature.sublist(32)), publicKey),
+          isFalse);
+      expect(XEdDSA.verify(message, signature, xp1), isFalse);
+    });
+
+    test('random signatures and public keys never throw', () {
+      final rng = Random(11);
+      for (var i = 0; i < 50; i++) {
+        final sig =
+            Uint8List.fromList(List.generate(64, (_) => rng.nextInt(256)));
+        final pk =
+            Uint8List.fromList(List.generate(32, (_) => rng.nextInt(256)));
+        expect(XEdDSA.verify(message, sig, pk), isFalse, reason: 'i=$i');
+      }
+    });
+  });
+
+  group('protocol separation', () {
+    test('Ed256189 signatures are not XEdDSA signatures', () {
+      final edKeyPair = Ed256189.generateKeyPair(seed);
+      final edSignature = Ed256189.sign(message, edKeyPair['privateKey']!);
+
+      expect(Ed256189.verify(message, edSignature, edKeyPair['publicKey']!),
+          isTrue);
+      expect(XEdDSA.verify(message, edSignature, edKeyPair['publicKey']!),
+          isFalse);
+    });
+
+    test('XEdDSA signatures are not Ed256189 signatures', () {
+      expect(Ed256189.verify(message, signature, publicKey), isFalse);
     });
   });
 
@@ -197,10 +292,10 @@ void main() {
     });
 
     test('challengeFor validates lengths and is deterministic', () {
-      final h1 = XEdDSA.challengeFor(
-          signature.sublist(0, 32), publicKey, message);
-      final h2 = XEdDSA.challengeFor(
-          signature.sublist(0, 32), publicKey, message);
+      final h1 =
+          XEdDSA.challengeFor(signature.sublist(0, 32), publicKey, message);
+      final h2 =
+          XEdDSA.challengeFor(signature.sublist(0, 32), publicKey, message);
       expect(h1, h2);
       expect(h1 < n, isTrue);
       expect(() => XEdDSA.challengeFor(Uint8List(31), publicKey, message),

@@ -17,6 +17,7 @@ import 'dart:typed_data';
 import 'montgomery.dart';
 import 'params.dart';
 import 'xeddsa.dart';
+import 'xeddsa_internal.dart';
 
 // Container for a single signature verification unit.
 // message:   original message that was signed
@@ -53,32 +54,11 @@ class BatchVerify {
     BigInt lhsScalar = BigInt.zero;
 
     for (final bundle in bundles) {
-      if (bundle.signature.length != XEdDSA.signatureLength) return false;
-      if (bundle.publicKey.length != XEdDSA.publicKeyLength) return false;
-
-      final xR = Uint8List.fromList(bundle.signature.sublist(0, 32));
-      final s = XEdDSA.decodeLittleEndian(
-        Uint8List.fromList(bundle.signature.sublist(32, 64)),
-      );
-
-      if (s >= _n) return false;
-
-      final R = Montgomery.pointFromX(
-        XEdDSA.decodeLittleEndian(xR),
-        evenY: true,
-      );
-      if (R == null) return false;
-      if (!Montgomery.isInPrimeOrderSubgroup(R)) return false;
-
-      final P = Montgomery.pointFromX(
-        XEdDSA.decodeLittleEndian(bundle.publicKey),
-        evenY: true,
-      );
-      if (P == null) return false;
-      if (!Montgomery.isInPrimeOrderSubgroup(P)) return false;
+      final input = parseXEdDSAInput(bundle.signature, bundle.publicKey);
+      if (input == null) return false;
 
       final h = XEdDSA.challengeFor(
-        xR,
+        input.xR,
         bundle.publicKey,
         bundle.message,
       );
@@ -86,11 +66,11 @@ class BatchVerify {
       // Random non-zero batch scalar prevents forgery via cancellation.
       final z = Montgomery.randomScalar();
 
-      lhsScalar = (lhsScalar + z * s) % _n;
+      lhsScalar = (lhsScalar + z * input.s) % _n;
       scalars.add(z);
-      points.add(R);
+      points.add(input.R);
       scalars.add((z * h) % _n);
-      points.add(P);
+      points.add(input.P);
     }
 
     final lhs = Montgomery.scalarMulFull(lhsScalar, _basePoint);
