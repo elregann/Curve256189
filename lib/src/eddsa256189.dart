@@ -37,6 +37,7 @@ import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 
+import 'eddsa256189_internal.dart';
 import 'edwards.dart';
 import 'montgomery.dart';
 import 'params.dart';
@@ -46,8 +47,8 @@ class Ed256189 {
   static final BigInt n = Curve256189Params.n;
 
   static const int seedLength = 32;
-  static const int publicKeyLength = 33;
-  static const int signatureLength = 65;
+  static const int publicKeyLength = ed256189PublicKeyLength;
+  static const int signatureLength = ed256189SignatureLength;
 
   // RFC 8032 scalar pruning for a curve with cofactor 4 = 2^2 and a
   // 254-bit subgroup order: clear bits 0 and 1, clear bit 255, set bit 254.
@@ -91,13 +92,6 @@ class Ed256189 {
 
   static Uint8List _hash(List<int> data) {
     return Uint8List.fromList(sha512.convert(data).bytes);
-  }
-
-  static bool _pointsEqual(EdwardsPoint a, EdwardsPoint b) {
-    if (a.isIdentity || b.isIdentity) {
-      return a.isIdentity && b.isIdentity;
-    }
-    return a.x == b.x && a.y == b.y;
   }
 
   static Uint8List _checkSeed(Uint8List seed) {
@@ -253,35 +247,19 @@ class Ed256189 {
     Uint8List signature,
     Uint8List publicKey,
   ) {
-    if (signature.length != signatureLength) return false;
-    if (publicKey.length != publicKeyLength) return false;
+    final input = parseEd256189Input(signature, publicKey);
+    if (input == null) return false;
 
-    final rEncoded = Uint8List.fromList(
-      signature.sublist(0, publicKeyLength),
-    );
-    final s = _decodeLittleEndian(
-      Uint8List.fromList(signature.sublist(publicKeyLength)),
-    );
+    final k = challengeFor(input.rEncoded, publicKey, message);
 
-    // S must be canonical.
-    if (s >= n) return false;
-
-    final publicPoint = DualEdwards.decodePoint(publicKey);
-    if (publicPoint == null) return false;
-    if (!DualEdwards.isInPrimeOrderSubgroup(publicPoint)) return false;
-
-    final rPoint = DualEdwards.decodePoint(rEncoded);
-    if (rPoint == null) return false;
-    if (!DualEdwards.isInPrimeOrderSubgroup(rPoint)) return false;
-
-    final k = challengeFor(rEncoded, publicKey, message);
-
-    final left = DualEdwards.scalarMul(s, _basePoint);
-    final right = DualEdwards.add(
-      rPoint,
-      DualEdwards.scalarMul(k, publicPoint),
+    // Evaluate the exact group equation in the Montgomery model. B is the
+    // image of Montgomery G under Phi, so its Montgomery representation is G.
+    final left = Montgomery.scalarMulFull(input.s, MontgomeryPoint.G);
+    final right = Montgomery.add(
+      input.rMontgomery,
+      Montgomery.scalarMulFull(k, input.publicMontgomery),
     );
 
-    return _pointsEqual(left, right);
+    return Montgomery.pointsEqual(left, right);
   }
 }

@@ -5,6 +5,7 @@ export 'src/aesgcm.dart';
 export 'src/batch_verify.dart';
 export 'src/edwards.dart';
 export 'src/eddsa256189.dart';
+export 'src/eddsa256189_batch.dart';
 export 'src/elligator.dart';
 export 'src/field.dart';
 export 'src/hkdf.dart';

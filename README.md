@@ -76,7 +76,7 @@ The full parameter set, including the subgroup orders n and nᵗ and the generat
 | **Elligator 2** | Point encoding and decoding per RFC 9380 |
 | **HKDF** | Key derivation per RFC 5869 |
 | **AES-GCM** | Authenticated encryption per NIST SP 800-38D |
-| **Batch Verify** | Batch verification of XEdDSA signatures with strict per-input validation (Ed256189 has no batch verifier yet; multi-scalar multiplication is not yet optimised) |
+| **Batch Verify** | Batch verification of XEdDSA and Ed256189 signatures with strict per-input validation (multi-scalar multiplication is not yet optimised) |
 
 ---
 
@@ -241,6 +241,23 @@ scheme is specified in [doc/ed256189.md](doc/ed256189.md) and is not
 wire-compatible with Ed25519, Ed448, or XEdDSA. Ed256189 keys are independent
 of X256189/XEdDSA keys derived from the same seed.
 
+Batch verification uses the same 33-byte public keys and 65-byte signatures.
+Every entry is validated with the same parser as individual verification:
+
+```dart
+final ok = Ed256189BatchVerify.verify([
+  Ed256189SignatureBundle(
+    message: message,
+    signature: signature,
+    publicKey: keyPair['publicKey']!,
+  ),
+]);
+```
+
+As with XEdDSA, multi-scalar multiplication is currently a loop of independent
+scalar multiplications, so the batch verifier is primarily a validation-
+consistency API, not yet a throughput win.
+
 ### XEdDSA: Sign and Verify (superseded)
 ```dart
 import 'package:curve256189/curve256189.dart';
@@ -358,6 +375,7 @@ dart test test/xeddsa_test.dart
 | `test/montgomery_test.dart` | group law, ladder, blinding, point validation |
 | `test/edwards_test.dart` | birational maps, dual-curve completeness, group law, point compression |
 | `test/eddsa256189_test.dart` | Ed256189 vectors, point encoding, subgroup validation, malformed signatures and keys |
+| `test/eddsa256189_batch_test.dart` | Ed256189 batch versus individual agreement, malformed entries, scale and stability |
 | `test/elligator_test.dart` | test vectors, RFC 9380 exceptional case, decode |
 | `test/x256189_test.dart` | ECDH vectors, invalid and twist public keys |
 | `test/xeddsa_test.dart` | independent vectors, anchor regression, malleability, invalid inputs, protocol separation |

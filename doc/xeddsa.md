@@ -6,8 +6,8 @@ independently audited.
 XEdDSA is the original signature scheme of this package: an x-only
 Schnorr-style signature over the Montgomery form of Curve256189. It is kept for
 backwards compatibility because its 32-byte public keys are the same keys used
-by X256189 ECDH, and because `BatchVerify` currently understands only this
-scheme. New protocols should use Ed256189.
+by X256189 ECDH, and because `BatchVerify` is specific to this scheme. New
+protocols should use Ed256189.
 
 This document records the exact profile implemented here. It is **not** a
 description of Signal's XEdDSA and is **not** wire-compatible with it. The two
@@ -367,7 +367,7 @@ ECDH session key beyond possession of the same seed.
 | Key derivation | clamp, reduce, `×4` | RFC 8032 pruning, no `×4` |
 | Key reuse with X256189 | yes | no |
 | Verification | exact, non-cofactored | exact, non-cofactored |
-| Batch | `BatchVerify` (XEdDSA only) | not implemented yet |
+| Batch | `BatchVerify` | `Ed256189BatchVerify` |
 
 Ed256189 is the intended replacement for new protocols. XEdDSA remains the
 compatibility and x-only profile.
