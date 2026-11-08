@@ -475,3 +475,7 @@ MIT License. See [LICENSE](LICENSE).
 - [RFC 5869](https://www.rfc-editor.org/rfc/rfc5869): HKDF
 - [Signal XEdDSA specification](https://signal.org/docs/specifications/xeddsa/)
 - [NIST SP 800-38D](https://csrc.nist.gov/publications/detail/sp/800-38d/final): AES-GCM
+
+---
+
+**Last updated:** 2026-11-08

@@ -1,7 +1,7 @@
 # =============================================================================
 # SafeCurves Compliance Test - Curve256189
 # Curve     : Curve256189 (Montgomery) / Ed256189 (Edwards) / X256189 (ECDH)
-# Equation  : y² = x³ + Ax² + x
+# Equation  : y^2 = x^3 + A*x^2 + x
 # Prime     : p = 2^256 - 189
 # Author    : Ismael Urzaiz Aranda
 # Reference : https://safecurves.cr.yp.to/
@@ -24,8 +24,8 @@ order = E.order()
 G = E(Gx_mont, Gy_mont)
 
 # Helper function for hex representation
-def to_hex(n):
-    return hex(n).rstrip('L')
+def to_hex(value):
+    return hex(int(value))
 
 # -----------------------------------------------------------------------------
 # 1. FIELD
@@ -33,36 +33,36 @@ def to_hex(n):
 # -----------------------------------------------------------------------------
 print("\n1. FIELD ARITHMETIC")
 print("-" * 70)
-print(f"Prime p          = 2^256 - 189")
+print("Prime p          = 2^256 - 189")
 print(f"                  = {p}")
 print(f"                  = {to_hex(p)}")
 prime_ok = is_prime(p)
-print(f"Prime?           {'✅' if prime_ok else '❌'}")
+print(f"Prime?           {'PASS' if prime_ok else 'FAIL'}")
 # nearest: check if p is of the form 2^m - c with c < 2^(m/2)
 c = 189
 m = 256
-nearest_ok = c < 2^(m/2)
-print(f"Nearest?         {'✅' if nearest_ok else '❌'}  (c = {c} < 2^{m//2})")
+nearest_ok = c < 2**(m // 2)
+print(f"Nearest?         {'PASS' if nearest_ok else 'FAIL'}  (c = {c} < 2^{m // 2})")
 print()
 
 # -----------------------------------------------------------------------------
 # 2. EQUATION
-# Montgomery: B(A²-4) nonzero mod p, B=1
+# Montgomery: B(A^2 - 4) nonzero mod p, B = 1
 # -----------------------------------------------------------------------------
 print("2. EQUATION")
 print("-" * 70)
 B = 1
-discriminant = B * (A^2 - 4) % p
+discriminant = B * (A**2 - 4) % p
 eq_ok = discriminant != 0
-print(f"Equation         y² = x³ + {A}x² + x")
+print(f"Equation         y^2 = x^3 + {A}x^2 + x")
 print(f"A                = {A}")
-print(f"B(A²-4) mod p    = {discriminant}")
-print(f"Nonzero?         {'✅' if eq_ok else '❌'}")
+print(f"B(A^2 - 4) mod p = {discriminant}")
+print(f"Nonzero?         {'PASS' if eq_ok else 'FAIL'}")
 print()
 
 # -----------------------------------------------------------------------------
 # 3. BASE POINT
-# Base point order must be prime and n*G = infinity
+# Base point order must be prime and n*G = identity
 # -----------------------------------------------------------------------------
 print("3. BASE POINT")
 print("-" * 70)
@@ -70,11 +70,11 @@ print(f"Generator G      = ({Gx_mont}, {Gy_mont})")
 print(f"Order n          = {n}")
 print(f"                  = {to_hex(n)}")
 n_prime = is_prime(n)
-print(f"n prime?         {'✅' if n_prime else '❌'}")
-nG_inf = (n * G == E(0))
-print(f"n*G = ∞?         {'✅' if nG_inf else '❌'}")
-base_ok = n_prime and nG_inf
-print(f"Base point OK    {'✅' if base_ok else '❌'}")
+print(f"n prime?         {'PASS' if n_prime else 'FAIL'}")
+nG_identity = (n * G == E(0))
+print(f"n*G = O?         {'PASS' if nG_identity else 'FAIL'}")
+base_ok = n_prime and nG_identity
+print(f"Base point OK    {'PASS' if base_ok else 'FAIL'}")
 print()
 
 # -----------------------------------------------------------------------------
@@ -86,8 +86,8 @@ print("-" * 70)
 rho_val = 0.886 * sqrt(n)
 rho_bits = log(rho_val, 2).n()
 rho_ok = rho_bits > 100
-print(f"0.886·√n         ≈ 2^{rho_bits:.1f}")
-print(f"> 2^100?         {'✅' if rho_ok else '❌'}")
+print(f"0.886*sqrt(n)    ~ 2^{rho_bits:.1f}")
+print(f"> 2^100?         {'PASS' if rho_ok else 'FAIL'}")
 print()
 
 # -----------------------------------------------------------------------------
@@ -115,12 +115,13 @@ for x in [8, 6, 4, 2]:
 
 l_minus_1_over_x = (n - 1) // x_target
 
-print(f"Embedding degree k:  {'> ' + str(max_search) if embedding_k is None else embedding_k}")
+embedding_text = f"> {max_search}" if embedding_k is None else str(embedding_k)
+print(f"Embedding degree k:  {embedding_text}")
 print(f"(l-1)/{x_target}:            {l_minus_1_over_x}")
 
 mult_ok = (embedding_k is None or embedding_k > 20)
 transfer_ok = additive_ok and mult_ok
-print(f"\nTransfer security: {'✅ PASS' if transfer_ok else '❌ FAIL'}")
+print(f"\nTransfer security: {'PASS' if transfer_ok else 'FAIL'}")
 print()
 
 # -----------------------------------------------------------------------------
@@ -131,18 +132,18 @@ print("6. CM DISCRIMINANT")
 print("-" * 70)
 t = p + 1 - order
 print(f"Trace t          = {t}")
-D_raw = t^2 - 4*p
+D_raw = t**2 - 4 * p
 # remove square factors
 s_sq = 1
 for prime_factor, exp in factor(abs(D_raw)):
-    s_sq *= prime_factor^(exp - (exp % 2))
+    s_sq *= prime_factor**(exp - (exp % 2))
 D = D_raw // s_sq
 if D % 4 != 1:
     D = 4 * D
 print(f"|D|              = {abs(D)}")
 print(f"                  = {to_hex(abs(D))}")
-disc_ok = abs(D) > 2^100
-print(f"|D| > 2^100?     {'✅' if disc_ok else '❌'}")
+disc_ok = abs(D) > 2**100
+print(f"|D| > 2^100?     {'PASS' if disc_ok else 'FAIL'}")
 print()
 
 # -----------------------------------------------------------------------------
@@ -156,20 +157,20 @@ print("  - cofactor = 4")
 print("  - twist cofactor = 4")
 print("  - prime subgroup order")
 print("  - prime twist subgroup order")
-print("Transparent and deterministic? ✅")
+print("Transparent and deterministic? PASS")
 rigid_ok = True
 print()
 
 # -----------------------------------------------------------------------------
 # 8. LADDER (Montgomery ladder)
-# Complete if A²-4 is non-square mod p
+# Complete if A^2 - 4 is non-square mod p
 # -----------------------------------------------------------------------------
 print("8. MONTGOMERY LADDER")
 print("-" * 70)
-A2_minus_4 = Mod(A^2 - 4, p)
+A2_minus_4 = Mod(A**2 - 4, p)
 ladder_ok = not A2_minus_4.is_square()
-print(f"A²-4 mod p       = {A2_minus_4}")
-print(f"Non-square?      {'✅' if ladder_ok else '❌'}")
+print(f"A^2 - 4 mod p    = {A2_minus_4}")
+print(f"Non-square?      {'PASS' if ladder_ok else 'FAIL'}")
 print()
 
 # -----------------------------------------------------------------------------
@@ -178,7 +179,7 @@ print()
 # -----------------------------------------------------------------------------
 print("9. TWIST")
 print("-" * 70)
-twist_order = 2*(p+1) - order
+twist_order = 2 * (p + 1) - order
 twist_h = 4
 twist_n = twist_order // twist_h
 print(f"Twist order      = {twist_order}")
@@ -186,38 +187,38 @@ print(f"                  = {to_hex(twist_order)}")
 print(f"Twist cofactor   = {twist_h}")
 print(f"Twist subgroup order = {twist_n}")
 twist_prime = is_prime(twist_n)
-print(f"Subgroup prime?  {'✅' if twist_prime else '❌'}")
+print(f"Subgroup prime?  {'PASS' if twist_prime else 'FAIL'}")
 twist_ok = (twist_order % 4 == 0) and twist_prime
-print(f"Twist OK         {'✅' if twist_ok else '❌'}")
+print(f"Twist OK         {'PASS' if twist_ok else 'FAIL'}")
 print()
 
 # -----------------------------------------------------------------------------
 # 10. COMPLETENESS
-# Montgomery ladder complete (single-coordinate) if A²-4 non-square
+# Montgomery ladder complete (single-coordinate) if A^2 - 4 non-square
 # Twisted Edwards complete requires a square, d non-square
 # -----------------------------------------------------------------------------
 print("10. COMPLETENESS")
 print("-" * 70)
-A2_minus_4_nonsquare = not Mod(A^2 - 4, p).is_square()
+A2_minus_4_nonsquare = not Mod(A**2 - 4, p).is_square()
 a_ed = A + 2
 d_ed = A - 2
 edwards_complete = Mod(a_ed, p).is_square() and not Mod(d_ed, p).is_square()
-print(f"Montgomery complete (A²-4 non-square)? {'✅' if A2_minus_4_nonsquare else '❌'}")
-print(f"Twisted Edwards complete?              {'✅' if edwards_complete else '❌'}")
+print(f"Montgomery complete (A^2 - 4 non-square)? {'PASS' if A2_minus_4_nonsquare else 'FAIL'}")
+print(f"Twisted Edwards complete?                 {'PASS' if edwards_complete else 'FAIL'}")
 complete_ok = A2_minus_4_nonsquare  # primary method
-print(f"Complete (via Montgomery ladder)      {'✅' if complete_ok else '❌'}")
+print(f"Complete (via Montgomery ladder)          {'PASS' if complete_ok else 'FAIL'}")
 print()
 
 # -----------------------------------------------------------------------------
 # 11. INDISTINGUISHABILITY (Elligator 2)
-# Applicable if A²-4 non-square and curve has point of order 2
+# Applicable if A^2 - 4 non-square and curve has point of order 2
 # -----------------------------------------------------------------------------
 print("11. INDISTINGUISHABILITY (ELLIGATOR 2)")
 print("-" * 70)
-elligator2_ok = (not Mod(A^2 - 4, p).is_square()) and (order % 2 == 0)
-print(f"A²-4 non-square?      {'✅' if not Mod(A^2-4, p).is_square() else '❌'}")
-print(f"Point of order 2?      {'✅' if order % 2 == 0 else '❌'}")
-print(f"Elligator 2 applicable {'✅' if elligator2_ok else '❌'}")
+elligator2_ok = (not Mod(A**2 - 4, p).is_square()) and (order % 2 == 0)
+print(f"A^2 - 4 non-square?      {'PASS' if not Mod(A**2 - 4, p).is_square() else 'FAIL'}")
+print(f"Point of order 2?        {'PASS' if order % 2 == 0 else 'FAIL'}")
+print(f"Elligator 2 applicable   {'PASS' if elligator2_ok else 'FAIL'}")
 print()
 
 # -----------------------------------------------------------------------------
@@ -232,13 +233,13 @@ print("-" * 70)
 
 criteria = [
     ("Field", prime_ok, f"p = 2^256-189, prime {prime_ok}"),
-    ("Equation", eq_ok, f"A = {A}, B=1, non-zero discriminant"),
-    ("Base point", base_ok, f"order n prime, n*G=∞"),
+    ("Equation", eq_ok, f"A = {A}, B = 1, non-zero discriminant"),
+    ("Base point", base_ok, f"order n prime, n*G = O"),
     ("Rho", rho_ok, f"2^{rho_bits:.1f} > 2^100"),
-    ("Transfer", transfer_ok, f"n≠p, k>100"),
+    ("Transfer", transfer_ok, f"n != p, k > 100"),
     ("Discriminant", disc_ok, f"|D| > 2^100"),
     ("Rigidity", rigid_ok, f"smallest A with criteria"),
-    ("Ladder", ladder_ok, f"A²-4 non-square"),
+    ("Ladder", ladder_ok, f"A^2 - 4 non-square"),
     ("Twist", twist_ok, f"twist cofactor 4, twist subgroup prime"),
     ("Completeness", complete_ok, f"Montgomery ladder complete"),
     ("Indistinguishability", elligator2_ok, f"Elligator 2 applicable")
@@ -246,7 +247,7 @@ criteria = [
 
 passed = 0
 for name, ok, detail in criteria:
-    status = "✅ PASS" if ok else "❌ FAIL"
+    status = "PASS" if ok else "FAIL"
     print(f"{name:<25} {status:<10} {detail}")
     if ok:
         passed += 1
@@ -254,7 +255,7 @@ for name, ok, detail in criteria:
 print("-" * 70)
 print(f"Total: {passed}/11 criteria met.")
 all_ok = all(ok for _, ok, _ in criteria)
-print(f"SafeCurves compliant? {'✅ YES' if all_ok else '❌ NO'}")
+print(f"SafeCurves compliant? {'YES' if all_ok else 'NO'}")
 print("=" * 70)
 print("\nReference: https://safecurves.cr.yp.to/")
 print("Author   : Ismael Urzaiz Aranda")
