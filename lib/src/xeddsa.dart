@@ -160,21 +160,32 @@ class XEdDSA {
     );
   }
 
+  // Derive x([a0]G) directly. The public key is x-only, so key generation
+  // does not need the even-y canonicalisation that signing requires. This is
+  // the same x-coordinate as X256189.generateKeyPair(seed)['publicKey'].
+  static Uint8List _publicKeyXFromSeed(Uint8List seed) {
+    final a0 = _expandSeed(seed)[0] as BigInt;
+
+    final x = Montgomery.ladderXOnly(a0, _basePoint.x, blind: true);
+    if (x == null) {
+      throw StateError('derived the point at infinity as public key');
+    }
+    return _encodeX(x);
+  }
+
   // Generate a key pair from a 32-byte seed.
   // Returns {privateKey: 32-byte seed, publicKey: 32-byte x(P)}.
   static Map<String, Uint8List> generateKeyPair(Uint8List seed) {
-    final P = _keyMaterial(seed).point;
-
     return {
       'privateKey': Uint8List.fromList(seed),
-      'publicKey': _encodeX(P.x),
+      'publicKey': _publicKeyXFromSeed(seed),
     };
   }
 
   // Derive the 32-byte public key from a seed without exposing the secret
   // scalar or the nonce prefix.
   static Uint8List publicKeyFromSeed(Uint8List seed) {
-    return _encodeX(_keyMaterial(seed).point.x);
+    return _publicKeyXFromSeed(seed);
   }
 
   // ---------------------------------------------------------------------
