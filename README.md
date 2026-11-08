@@ -394,6 +394,7 @@ sage tool/find_prime.sage
 dart run tool/twist_analysis.dart
 dart run tool/mov_analysis.dart
 dart run tool/benchmark.dart
+dart run tool/benchmark_e2e.dart
 python tool/xeddsa_vectors.py --dart test/xeddsa_vectors.dart
 python tool/ed256189_vectors.py --dart test/ed256189_vectors.dart
 ```
