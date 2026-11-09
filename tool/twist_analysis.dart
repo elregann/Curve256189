@@ -12,16 +12,101 @@
 
 import 'package:curve256189/curve256189.dart';
 
-// Miller-Rabin primality test (deterministic for the numbers in this test range)
+// Miller-Rabin primality test.
+//
+// The bases are fixed so that repeated runs are reproducible. With 32 bases,
+// the probability that a composite passes every round is at most 4^-32
+// (about 2^-64), which is negligible for the offline inputs used here. This
+// is a probabilistic test, not a primality proof.
+//
+// Dart's BigInt.modPow is deliberately avoided: this repository has observed
+// incorrect results from it for some 256-bit inputs (see field.dart).
 bool _isPrime(BigInt n) {
   if (n < BigInt.two) return false;
-  if (n == BigInt.two) return true;
+  if (n == BigInt.two || n == BigInt.from(3)) return true;
   if (n.isEven) return false;
-  // Trial division for small factors
-  for (int i = 3; i < 1000; i += 2) {
-    if (n % BigInt.from(i) == BigInt.zero) return false;
+
+  const bases = <int>[
+    2,
+    3,
+    5,
+    7,
+    11,
+    13,
+    17,
+    19,
+    23,
+    29,
+    31,
+    37,
+    41,
+    43,
+    47,
+    53,
+    59,
+    61,
+    67,
+    71,
+    73,
+    79,
+    83,
+    89,
+    97,
+    101,
+    103,
+    107,
+    109,
+    113,
+    127,
+    131,
+  ];
+
+  // Trial division by the bases catches small composites early.
+  for (final base in bases) {
+    final a = BigInt.from(base);
+    if (a >= n) break;
+    if (n % a == BigInt.zero) return n == a;
   }
-  return true; // Likely prime for the purposes of this test
+
+  var d = n - BigInt.one;
+  var s = 0;
+  while (d.isEven) {
+    d >>= 1;
+    s++;
+  }
+
+  for (final base in bases) {
+    final a = BigInt.from(base);
+    if (a >= n) break;
+
+    var x = _modPow(a, d, n);
+    if (x == BigInt.one || x == n - BigInt.one) continue;
+
+    var composite = true;
+    for (var r = 1; r < s; r++) {
+      x = (x * x) % n;
+      if (x == n - BigInt.one) {
+        composite = false;
+        break;
+      }
+    }
+    if (composite) return false;
+  }
+
+  return true;
+}
+
+// Modular exponentiation without BigInt.modPow.
+BigInt _modPow(BigInt base, BigInt exponent, BigInt modulus) {
+  var result = BigInt.one;
+  var b = base % modulus;
+  var e = exponent;
+  while (e > BigInt.zero) {
+    if (e.isOdd) result = (result * b) % modulus;
+    e >>= 1;
+    b = (b * b) % modulus;
+  }
+  return result;
 }
 
 void main() {

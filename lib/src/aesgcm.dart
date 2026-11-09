@@ -16,6 +16,36 @@ class AESGCMResult {
 }
 
 class AESGCM {
+  static void _checkKey(Uint8List key) {
+    if (key.length != 32) {
+      throw ArgumentError.value(
+        key.length,
+        'key',
+        'AES-256-GCM requires a 32-byte key',
+      );
+    }
+  }
+
+  static void _checkNonce(Uint8List nonce) {
+    if (nonce.length != 12) {
+      throw ArgumentError.value(
+        nonce.length,
+        'nonce',
+        'AES-GCM requires a 12-byte nonce',
+      );
+    }
+  }
+
+  static void _checkTag(Uint8List tag) {
+    if (tag.length != 16) {
+      throw ArgumentError.value(
+        tag.length,
+        'tag',
+        'AES-GCM requires a 16-byte authentication tag',
+      );
+    }
+  }
+
   // Encrypt plaintext with AES-256-GCM
   // key:       32 bytes (256-bit) — derive via HKDF from ECDH shared secret
   // nonce:     12 bytes (96-bit) per NIST SP 800-38D — must be unique per key
@@ -28,8 +58,8 @@ class AESGCM {
     required Uint8List plaintext,
     Uint8List? aad,
   }) {
-    assert(key.length == 32, 'Key must be 32 bytes (AES-256)');
-    assert(nonce.length == 12, 'Nonce must be 12 bytes per NIST SP 800-38D');
+    _checkKey(key);
+    _checkNonce(nonce);
 
     final cipher = GCMBlockCipher(AESEngine());
     final params = AEADParameters(
@@ -71,9 +101,9 @@ class AESGCM {
     required Uint8List tag,
     Uint8List? aad,
   }) {
-    assert(key.length == 32, 'Key must be 32 bytes (AES-256)');
-    assert(nonce.length == 12, 'Nonce must be 12 bytes per NIST SP 800-38D');
-    assert(tag.length == 16, 'Tag must be 16 bytes (128-bit)');
+    _checkKey(key);
+    _checkNonce(nonce);
+    _checkTag(tag);
 
     final cipher = GCMBlockCipher(AESEngine());
     final params = AEADParameters(

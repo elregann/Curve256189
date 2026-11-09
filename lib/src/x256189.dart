@@ -52,8 +52,12 @@ class X256189 {
 
     final sk = _bytesToBigInt(skBytes) % n;
 
-    // Cofactor clearing per RFC 7748: multiply scalar by h=4.
-    // Ensures the shared secret lies in the prime-order subgroup.
+    // The low two bits were cleared above, which is the cofactor-clearing
+    // clamp for h = 4. RFC 7748 specifies clamping only; it does not require
+    // multiplying the scalar by the cofactor. The extra multiplication below
+    // is retained because changing it would alter existing X256189 shared
+    // secret vectors. Both parties use the same derivation, so this is
+    // internally consistent, but X256189 is not wire-compatible with X25519.
     return (sk * BigInt.from(4)) % n;
   }
 

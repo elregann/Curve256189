@@ -6,6 +6,11 @@ import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 
 class HKDF {
+  // RFC 5869 §2.3: the output length must not exceed 255 * HashLen. This
+  // implementation uses HMAC-SHA256, so HashLen = 32 bytes.
+  static const int _hashLength = 32;
+  static const int _maxOutputLength = 255 * _hashLength;
+
   // HKDF-Extract: PRK = HMAC-SHA256(salt, IKM)
   static Uint8List extract(Uint8List salt, Uint8List ikm) {
     final hmacSha256 = Hmac(sha256, salt);
@@ -15,6 +20,18 @@ class HKDF {
 
   // HKDF-Expand: OKM = T(1) || T(2) || ...
   static Uint8List expand(Uint8List prk, Uint8List info, int length) {
+    if (length < 0) {
+      throw ArgumentError.value(length, 'length', 'must be non-negative');
+    }
+    if (length > _maxOutputLength) {
+      throw ArgumentError.value(
+        length,
+        'length',
+        'HKDF-Expand output cannot exceed 255 * HashLen '
+            '($_maxOutputLength bytes for SHA-256)',
+      );
+    }
+
     final okm = <int>[];
     var t = <int>[];
     var i = 1;

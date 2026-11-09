@@ -55,17 +55,16 @@ void main() {
     final nonce = Uint8List.fromList(List.generate(12, (i) => i));
     final plaintext = bytesOf('Hello Curve256189!');
     final aad = bytesOf('Curve256189 AAD');
-    final sealed =
-        AESGCM.encrypt(key: key, nonce: nonce, plaintext: plaintext);
-    final sealedAad = AESGCM.encrypt(
-        key: key, nonce: nonce, plaintext: plaintext, aad: aad);
+    final sealed = AESGCM.encrypt(key: key, nonce: nonce, plaintext: plaintext);
+    final sealedAad =
+        AESGCM.encrypt(key: key, nonce: nonce, plaintext: plaintext, aad: aad);
 
     test('known ciphertext and tag (cross-checked with an independent AES-GCM)',
         () {
       expect(toHex(sealed.ciphertext), '0f67ba77aac5816eff37f2b984df4955baf7');
       expect(toHex(sealed.tag), '4ee590f9fa0611f994c0aff3531a78d5');
-      expect(toHex(sealedAad.ciphertext),
-          '0f67ba77aac5816eff37f2b984df4955baf7');
+      expect(
+          toHex(sealedAad.ciphertext), '0f67ba77aac5816eff37f2b984df4955baf7');
       expect(toHex(sealedAad.tag), '1f3eed002e4338797784809e67585ebe');
     });
 
@@ -102,7 +101,8 @@ void main() {
     test('tampered ciphertext is rejected', () {
       final bad = Uint8List.fromList(sealed.ciphertext)..[0] ^= 0x01;
       expect(
-          AESGCM.decrypt(key: key, nonce: nonce, ciphertext: bad, tag: sealed.tag),
+          AESGCM.decrypt(
+              key: key, nonce: nonce, ciphertext: bad, tag: sealed.tag),
           isNull);
     });
 
@@ -173,6 +173,55 @@ void main() {
     });
   });
 
+  group('input validation', () {
+    final key = Uint8List(32);
+    final nonce = Uint8List(12);
+    final plaintext = bytesOf('validation');
+
+    test('rejects wrong key length', () {
+      expect(
+        () => AESGCM.encrypt(
+            key: Uint8List(31), nonce: nonce, plaintext: plaintext),
+        throwsArgumentError,
+      );
+      expect(
+        () => AESGCM.decrypt(
+            key: Uint8List(33),
+            nonce: nonce,
+            ciphertext: Uint8List(0),
+            tag: Uint8List(16)),
+        throwsArgumentError,
+      );
+    });
+
+    test('rejects wrong nonce length', () {
+      expect(
+        () => AESGCM.encrypt(
+            key: key, nonce: Uint8List(11), plaintext: plaintext),
+        throwsArgumentError,
+      );
+      expect(
+        () => AESGCM.decrypt(
+            key: key,
+            nonce: Uint8List(13),
+            ciphertext: Uint8List(0),
+            tag: Uint8List(16)),
+        throwsArgumentError,
+      );
+    });
+
+    test('rejects wrong tag length', () {
+      expect(
+        () => AESGCM.decrypt(
+            key: key,
+            nonce: nonce,
+            ciphertext: Uint8List(0),
+            tag: Uint8List(15)),
+        throwsArgumentError,
+      );
+    });
+  });
+
   test('ECDH + HKDF + AES-GCM end to end', () {
     final alice = X256189.generateKeyPair(seedFrom(1));
     final bob = X256189.generateKeyPair(seedFrom(33));
@@ -183,8 +232,8 @@ void main() {
 
     Uint8List keyFor(Uint8List s) =>
         HKDF.derive(ikm: s, info: bytesOf('Curve256189 AES key'));
-    Uint8List nonceFor(Uint8List s) => HKDF.derive(
-        ikm: s, info: bytesOf('Curve256189 AES nonce'), length: 12);
+    Uint8List nonceFor(Uint8List s) =>
+        HKDF.derive(ikm: s, info: bytesOf('Curve256189 AES nonce'), length: 12);
 
     final message = bytesOf('Hello Bob! from Curve256189');
     final sealed = AESGCM.encrypt(

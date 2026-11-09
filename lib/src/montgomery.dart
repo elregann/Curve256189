@@ -385,7 +385,9 @@ class Montgomery {
   //
   //   y_R = ((xP*xR + 1)*(xP + xR + 2A) - 2A - (xP - xR)²*xNext) / (2*yP)
   //
-  // A double-and-add fallback is used for exceptional inputs.
+  // Unblinded calls use a double-and-add fallback for exceptional inputs.
+  // Blinded calls fail closed instead, so secret scalars never enter the
+  // variable-time fallback path.
   static MontgomeryPoint scalarMulFull(
     BigInt k,
     MontgomeryPoint p, {
@@ -441,6 +443,14 @@ class Montgomery {
 
     if (FieldElement.mul(yR, yR) == rhs) {
       return MontgomeryPoint(xR, yR);
+    }
+
+    // The y-recovery formula is expected to succeed for every valid point.
+    // Reaching this branch means the input is exceptional or the recovery
+    // invariant is broken. For secret scalars, fail closed instead of falling
+    // back to the variable-time double-and-add path.
+    if (blind) {
+      throw StateError('scalarMulFull: y-recovery failed for a blinded scalar');
     }
 
     return _doubleAndAdd(k, p);

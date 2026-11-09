@@ -148,17 +148,45 @@ print()
 
 # -----------------------------------------------------------------------------
 # 7. RIGIDITY
-# Transparent and deterministic generation process
+# The documented selection process is an exhaustive search over
+# 0 <= A <= 10^6 for the smallest A with cofactor pair (4, 4), prime subgroup
+# orders, and A^2 - 4 non-square. This script recomputes the admissibility
+# checks for the selected A. The expensive uniqueness search is documented in
+# README and is not repeated here.
 # -----------------------------------------------------------------------------
 print("7. RIGIDITY")
 print("-" * 70)
-print("Process: brute force smallest A satisfying:")
-print("  - cofactor = 4")
-print("  - twist cofactor = 4")
-print("  - prime subgroup order")
-print("  - prime twist subgroup order")
-print("Transparent and deterministic? PASS")
-rigid_ok = True
+
+rigidity_limit = 10**6
+rigidity_h = 4
+rigidity_twist_h = 4
+
+rigidity_order = order
+rigidity_twist_order = 2 * (p + 1) - rigidity_order
+rigidity_order_ok = rigidity_order % rigidity_h == 0
+rigidity_twist_order_ok = rigidity_twist_order % rigidity_twist_h == 0
+rigidity_n = rigidity_order // rigidity_h
+rigidity_twist_n = rigidity_twist_order // rigidity_twist_h
+rigidity_cofactors_ok = rigidity_order_ok and rigidity_twist_order_ok
+rigidity_subgroups_ok = is_prime(rigidity_n) and is_prime(rigidity_twist_n)
+rigidity_nonsquare_ok = not Mod(A**2 - 4, p).is_square()
+rigidity_in_range = 0 <= A <= rigidity_limit
+
+print(f"Selected A          = {A}")
+print(f"Search range        = 0 <= A <= {rigidity_limit}")
+print(f"In range?           {'PASS' if rigidity_in_range else 'FAIL'}")
+print(f"Cofactor pair       = ({rigidity_order // rigidity_n}, {rigidity_twist_order // rigidity_twist_n})")
+print(f"Cofactors (4, 4)?   {'PASS' if rigidity_cofactors_ok else 'FAIL'}")
+print(f"Subgroups prime?    {'PASS' if rigidity_subgroups_ok else 'FAIL'}")
+print(f"A^2 - 4 non-square? {'PASS' if rigidity_nonsquare_ok else 'FAIL'}")
+print("Uniqueness          = established by the documented exhaustive search")
+rigid_ok = (
+    rigidity_in_range
+    and rigidity_cofactors_ok
+    and rigidity_subgroups_ok
+    and rigidity_nonsquare_ok
+)
+print(f"Admissibility       {'PASS' if rigid_ok else 'FAIL'}")
 print()
 
 # -----------------------------------------------------------------------------
@@ -194,19 +222,24 @@ print()
 
 # -----------------------------------------------------------------------------
 # 10. COMPLETENESS
-# Montgomery ladder complete (single-coordinate) if A^2 - 4 non-square
-# Twisted Edwards complete requires a square, d non-square
+# Montgomery ladder is complete when A^2 - 4 is a non-square.
+# Ed256189 uses the dual twisted Edwards curve
+#     d*u^2 + v^2 = 1 + a*u^2*v^2,
+# whose standard addition law is complete when the coefficient of u^2 (d) is a
+# square and the coefficient of u^2*v^2 (a) is a non-square.
 # -----------------------------------------------------------------------------
 print("10. COMPLETENESS")
 print("-" * 70)
 A2_minus_4_nonsquare = not Mod(A**2 - 4, p).is_square()
 a_ed = A + 2
 d_ed = A - 2
-edwards_complete = Mod(a_ed, p).is_square() and not Mod(d_ed, p).is_square()
+dual_edwards_complete = Mod(d_ed, p).is_square() and not Mod(a_ed, p).is_square()
+natural_edwards_complete = Mod(a_ed, p).is_square() and not Mod(d_ed, p).is_square()
 print(f"Montgomery complete (A^2 - 4 non-square)? {'PASS' if A2_minus_4_nonsquare else 'FAIL'}")
-print(f"Twisted Edwards complete?                 {'PASS' if edwards_complete else 'FAIL'}")
-complete_ok = A2_minus_4_nonsquare  # primary method
-print(f"Complete (via Montgomery ladder)          {'PASS' if complete_ok else 'FAIL'}")
+print(f"Natural E_(a,d) complete?                 {'PASS' if natural_edwards_complete else 'FAIL'} (not used by Ed256189)")
+print(f"Dual E_(d,a) complete?                    {'PASS' if dual_edwards_complete else 'FAIL'} (used by Ed256189)")
+complete_ok = A2_minus_4_nonsquare and dual_edwards_complete
+print(f"Complete (Montgomery ladder + dual Edwards) {'PASS' if complete_ok else 'FAIL'}")
 print()
 
 # -----------------------------------------------------------------------------
@@ -238,10 +271,10 @@ criteria = [
     ("Rho", rho_ok, f"2^{rho_bits:.1f} > 2^100"),
     ("Transfer", transfer_ok, f"n != p, k > 100"),
     ("Discriminant", disc_ok, f"|D| > 2^100"),
-    ("Rigidity", rigid_ok, f"smallest A with criteria"),
+    ("Rigidity", rigid_ok, "A admissible; uniqueness from documented search"),
     ("Ladder", ladder_ok, f"A^2 - 4 non-square"),
     ("Twist", twist_ok, f"twist cofactor 4, twist subgroup prime"),
-    ("Completeness", complete_ok, f"Montgomery ladder complete"),
+    ("Completeness", complete_ok, "Montgomery ladder and dual Edwards complete"),
     ("Indistinguishability", elligator2_ok, f"Elligator 2 applicable")
 ]
 

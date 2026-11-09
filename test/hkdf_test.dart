@@ -67,8 +67,10 @@ void main() {
 
     test('shorter outputs are prefixes of longer ones', () {
       final long = HKDF.derive(ikm: shared, info: info, length: 80);
-      expect(HKDF.derive(ikm: shared, info: info, length: 20), long.sublist(0, 20));
-      expect(HKDF.derive(ikm: shared, info: info, length: 64), long.sublist(0, 64));
+      expect(HKDF.derive(ikm: shared, info: info, length: 20),
+          long.sublist(0, 20));
+      expect(HKDF.derive(ikm: shared, info: info, length: 64),
+          long.sublist(0, 64));
     });
 
     test('ikm and info separate outputs', () {
@@ -88,6 +90,22 @@ void main() {
           ikm: X256189.computeSharedSecret(b['privateKey']!, a['publicKey']!)!,
           info: info);
       expect(ka, kb);
+    });
+  });
+
+  group('input validation', () {
+    test('rejects output lengths outside the RFC 5869 limit', () {
+      final prk = HKDF.extract(Uint8List(0), Uint8List(32));
+
+      expect(
+        () => HKDF.expand(prk, Uint8List(0), 255 * 32 + 1),
+        throwsArgumentError,
+      );
+      expect(
+        () => HKDF.expand(prk, Uint8List(0), -1),
+        throwsArgumentError,
+      );
+      expect(HKDF.expand(prk, Uint8List(0), 255 * 32).length, 255 * 32);
     });
   });
 }
