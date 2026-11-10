@@ -19,7 +19,9 @@ void main() {
     );
   });
 
-  test('A^2 - 4 is a non-square (x^2 + Ax + 1 has no roots, so (0,0) is the only order-2 point)', () {
+  test(
+      'A^2 - 4 is a non-square (x^2 + Ax + 1 has no roots, so (0,0) is the only order-2 point)',
+      () {
     final disc = FieldElement.sub(
         FieldElement.mul(Curve256189Params.A, Curve256189Params.A),
         BigInt.from(4));

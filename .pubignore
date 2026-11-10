@@ -1,0 +1,8 @@
+# Files that should not be part of the published package.
+# The package is a library: the lockfile is intentionally not committed and
+# IDE metadata is local to the developer.
+
+.idea/
+.vscode/
+*.iml
+pubspec.lock

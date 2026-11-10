@@ -72,8 +72,8 @@ void main() {
 
     test('inv0(0) == 0 and inv0 matches inv otherwise', () {
       expect(FieldElement.inv0(BigInt.zero), BigInt.zero);
-      expect(FieldElement.inv0(BigInt.from(7)),
-          FieldElement.inv(BigInt.from(7)));
+      expect(
+          FieldElement.inv0(BigInt.from(7)), FieldElement.inv(BigInt.from(7)));
     });
   });
 
@@ -134,8 +134,8 @@ void main() {
       expect(FieldElement.pow(BigInt.zero, BigInt.from(5)), BigInt.zero);
       expect(FieldElement.pow(p + BigInt.two, BigInt.one), BigInt.two);
       expect(FieldElement.pow(-BigInt.one, BigInt.two), BigInt.one);
-      expect(() => FieldElement.pow(BigInt.two, -BigInt.one),
-          throwsArgumentError);
+      expect(
+          () => FieldElement.pow(BigInt.two, -BigInt.one), throwsArgumentError);
     });
   });
 }

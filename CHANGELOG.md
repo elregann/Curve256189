@@ -1,3 +1,34 @@
+## 1.0.0-beta.6
+
+- **Breaking: Curve256189 now uses `A = 61370`.** The Montgomery coefficient
+  moved from the earlier draft value `A = 479597` to the first admissible value
+  of a deterministic scan from 0. Keys, signatures and shared secrets produced
+  with `A = 479597` are not compatible with this parameter set.
+- The selection is a *first-hit* rule, not a uniqueness claim. Earlier drafts
+  described `A = 479597` as the unique admissible coefficient in
+  `0 <= A <= 10^6`; that claim was incorrect, because `A = 61370` is an earlier
+  admissible coefficient under the same criteria. `tool/find_A.sage` reproduces
+  the scan.
+- Updated parameters: `a24 = 15343`, `aEd = 61372`, `d = 61368`, `gx = 6`, and
+  the derived base points. `n` now satisfies `2^254 < n < 2^255` and `#E = 4n`
+  is 257 bits; the twist subgroup order is 254 bits. Both subgroup orders remain
+  prime and both cofactors remain 4.
+- Regenerated all Ed256189 and XEdDSA test vectors and both independent Python
+  generators. `tool/safecurves_curve256189.sage` now checks the first-hit rule
+  and dual-curve completeness.
+- **Added `example/`** with runnable examples for Ed256189, X256189 ECDH,
+  XEdDSA (superseded), AES-256-GCM and Elligator 2, plus a complete
+  ECDH -> HKDF -> AES-GCM workflow. The directory follows the Pub `example/`
+  convention.
+- **Added `SECURITY.md`** documenting the non-constant-time `BigInt` caveat, the
+  absence of an independent audit, and the supported version line.
+- CI now enforces `dart format`, runs every example, and validates the package
+  with `dart pub publish --dry-run`.
+- `pubspec.lock` and IDE metadata are no longer tracked; `.pubignore` keeps them
+  out of the published package.
+- Documentation now states `S < n < 2^255` for Ed256189 signatures (the previous
+  `2^254` bound applied to the old parameter set).
+
 ## 1.0.0-beta.5
 
 - **New `Ed256189` signature scheme.** EdDSA for Curve256189 on the complete

@@ -27,16 +27,22 @@ void main() {
   group('known answers (computed independently in Python)', () {
     test('2G, 3G, 4G', () {
       final g2 = Montgomery.scalarMulFull(BigInt.two, g);
-      expect(g2.x, big('71702383869856642770344903927731741473437292229191794436086656795143485823472'));
-      expect(g2.y, big('57363726468860733750451189193045550261171111216048082171380039097975535793301'));
+      expect(g2.x,
+          big('71702383869856642770344903927731741473437292229191794436086656795143485823472'));
+      expect(g2.y,
+          big('57363726468860733750451189193045550261171111216048082171380039097975535793301'));
 
       final g3 = Montgomery.scalarMulFull(BigInt.from(3), g);
-      expect(g3.x, big('14115666474119806464227609162703856245675945261003141602085662706771368881379'));
-      expect(g3.y, big('83106376866341491647172049181615210947460868157176566557219288467553356029720'));
+      expect(g3.x,
+          big('14115666474119806464227609162703856245675945261003141602085662706771368881379'));
+      expect(g3.y,
+          big('83106376866341491647172049181615210947460868157176566557219288467553356029720'));
 
       final g4 = Montgomery.scalarMulFull(BigInt.from(4), g);
-      expect(g4.x, big('74570479769107260763191732626167571959616451960889668458732909790964950787294'));
-      expect(g4.y, big('50973944465980728372257055003499441406282214920689735945547903951881896540149'));
+      expect(g4.x,
+          big('74570479769107260763191732626167571959616451960889668458732909790964950787294'));
+      expect(g4.y,
+          big('50973944465980728372257055003499441406282214920689735945547903951881896540149'));
     });
 
     test('x-only ladder agrees on 2G, 3G, 4G', () {
@@ -49,7 +55,8 @@ void main() {
     });
 
     test('order-4 point (p-1, sqrt(A-2)) and mixed-order point G + (0,0)', () {
-      expect(order4.y,
+      expect(
+          order4.y,
           anyOf(
             big('80492744670248143968696479090130607422449092265214152367442002500378944457818'),
             p - big('80492744670248143968696479090130607422449092265214152367442002500378944457818'),
@@ -67,8 +74,8 @@ void main() {
       expect(Montgomery.isOnCurve(g2), isTrue);
       expect(Montgomery.pointsEqual(Montgomery.add(g, g), g2), isTrue);
       expect(
-        Montgomery.pointsEqual(
-            Montgomery.scalarMulFull(BigInt.from(4), g), Montgomery.double_(g2)),
+        Montgomery.pointsEqual(Montgomery.scalarMulFull(BigInt.from(4), g),
+            Montgomery.double_(g2)),
         isTrue,
       );
     });
@@ -105,8 +112,8 @@ void main() {
     test('order-4 point: 2P = (0,0), 4P = infinity', () {
       final twice = Montgomery.double_(order4);
       expect(Montgomery.pointsEqual(twice, order2), isTrue);
-      expect(Montgomery.scalarMulFull(BigInt.from(4), order4).isInfinity,
-          isTrue);
+      expect(
+          Montgomery.scalarMulFull(BigInt.from(4), order4).isInfinity, isTrue);
     });
   });
 
@@ -114,8 +121,7 @@ void main() {
     test('matches double-and-add', () {
       for (final k in [1, 2, 3, 13, 255, 1024, 65537]) {
         expect(
-          Montgomery.pointsEqual(
-              Montgomery.scalarMulFull(BigInt.from(k), g),
+          Montgomery.pointsEqual(Montgomery.scalarMulFull(BigInt.from(k), g),
               _naiveMul(BigInt.from(k), g)),
           isTrue,
           reason: 'k=$k',
@@ -134,8 +140,7 @@ void main() {
         isTrue,
       );
       expect(
-        Montgomery.pointsEqual(
-            Montgomery.scalarMulFull(n + BigInt.one, g), g),
+        Montgomery.pointsEqual(Montgomery.scalarMulFull(n + BigInt.one, g), g),
         isTrue,
       );
     });
@@ -153,8 +158,8 @@ void main() {
 
     test('rejects a point that is not on the curve', () {
       final off = MontgomeryPoint(g.x, (g.y + BigInt.one) % p);
-      expect(() => Montgomery.scalarMulFull(BigInt.two, off),
-          throwsArgumentError);
+      expect(
+          () => Montgomery.scalarMulFull(BigInt.two, off), throwsArgumentError);
     });
 
     test('multiScalarMul and length check', () {
@@ -166,8 +171,8 @@ void main() {
             sum, Montgomery.scalarMulFull(BigInt.from(25), g)),
         isTrue,
       );
-      expect(() => Montgomery.multiScalarMul([a], [g, g2]),
-          throwsArgumentError);
+      expect(
+          () => Montgomery.multiScalarMul([a], [g, g2]), throwsArgumentError);
     });
 
     test('randomScalar is in [1, n)', () {
@@ -185,8 +190,10 @@ void main() {
     test('blindScalar adds a multiple of 4n', () {
       final r = Montgomery.blindScalar(k, BigInt.from(5));
       expect(r, k + BigInt.from(5) * BigInt.from(4) * n);
-      expect(Montgomery.blindScalar(k, BigInt.one) !=
-          Montgomery.blindScalar(k, BigInt.two), isTrue);
+      expect(
+          Montgomery.blindScalar(k, BigInt.one) !=
+              Montgomery.blindScalar(k, BigInt.two),
+          isTrue);
     });
 
     test('ladderXOnly result does not depend on the blinding', () {

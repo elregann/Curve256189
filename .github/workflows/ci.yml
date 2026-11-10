@@ -14,5 +14,14 @@ jobs:
         with:
           sdk: stable
       - run: dart pub get
+      - run: dart format --output=none --set-exit-if-changed .
       - run: dart analyze
       - run: dart test
+      - name: Run examples
+        run: |
+          for file in example/*.dart; do
+            echo "::group::$file"
+            dart run "$file"
+            echo "::endgroup::"
+          done
+      - run: dart pub publish --dry-run

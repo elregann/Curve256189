@@ -48,7 +48,8 @@ void main() {
 
   group('exceptional case 1 + u t^2 == 0 (RFC 9380 section 6.7.1)', () {
     // sqrt(-1/u), canonical representative (computed independently in Python).
-    final t0 = big('31030605534276244588514433954599146277984599876055206801028946312282397445893');
+    final t0 = big(
+        '31030605534276244588514433954599146277984599876055206801028946312282397445893');
     final minusA = p - aCoef;
 
     test('t0 is really exceptional', () {
@@ -96,7 +97,8 @@ void main() {
     test('roughly half of the curve points are representable', () {
       var decodable = 0, notDecodable = 0;
       for (var k = 2; k < 60; k++) {
-        final point = Montgomery.scalarMulFull(BigInt.from(k), MontgomeryPoint.G);
+        final point =
+            Montgomery.scalarMulFull(BigInt.from(k), MontgomeryPoint.G);
         if (Elligator.decode(point.x) != null) {
           decodable++;
         } else {

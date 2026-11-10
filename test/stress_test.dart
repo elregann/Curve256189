@@ -129,10 +129,8 @@ void main() {
     for (var i = 0; i < 50; i++) {
       final a = X256189.generateKeyPair(_randomBytes(rng, 32));
       final b = X256189.generateKeyPair(_randomBytes(rng, 32));
-      final ab =
-          X256189.computeSharedSecret(a['privateKey']!, b['publicKey']!);
-      final ba =
-          X256189.computeSharedSecret(b['privateKey']!, a['publicKey']!);
+      final ab = X256189.computeSharedSecret(a['privateKey']!, b['publicKey']!);
+      final ba = X256189.computeSharedSecret(b['privateKey']!, a['publicKey']!);
       expect(ab, isNotNull);
       expect(ab, ba, reason: 'i=$i');
     }
@@ -149,7 +147,8 @@ void main() {
     }
   });
 
-  test('Edwards decodePoint: random input yields null or an on-curve point', () {
+  test('Edwards decodePoint: random input yields null or an on-curve point',
+      () {
     final rng = Random(6);
     var decoded = 0;
     for (var i = 0; i < 500; i++) {

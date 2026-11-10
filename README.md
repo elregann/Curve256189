@@ -8,6 +8,11 @@ Curve256189 was designed and implemented by Ismael Urzaiz Aranda. It satisfies a
 
 Ed256189 is specified in [doc/ed256189.md](doc/ed256189.md). XEdDSA is specified in [doc/xeddsa.md](doc/xeddsa.md); it is kept for backwards compatibility and is marked superseded. It will be removed in a future major release.
 
+> **Status:** beta and experimental. The library has not been independently
+> audited, and it relies on Dart `BigInt`, whose arithmetic is not
+> constant-time. Read [SECURITY.md](SECURITY.md) before using it for anything
+> sensitive.
+
 ---
 
 ## Parameter Selection
@@ -322,6 +327,21 @@ final gDual = DualEdwards.fromMontgomery(MontgomeryPoint.G);
 final threeGDual = DualEdwards.scalarMul(BigInt.from(3), gDual);
 ```
 
+### Elligator 2: point encoding
+```dart
+import 'package:curve256189/curve256189.dart';
+
+// Encode a field element as a Montgomery x-coordinate. Returns null for t = 0.
+final x = Elligator.encode(BigInt.from(42));
+
+// Recover the canonical preimage, or null if the point is not representable.
+final t = Elligator.decode(x!);
+```
+
+Elligator 2 is a uniform encoding, not encryption. Roughly half of the curve
+points are representable, so callers that need a preimage retry with a fresh
+`t`.
+
 ### X256189: ECDH Key Exchange
 ```dart
 import 'package:curve256189/curve256189.dart';
@@ -354,7 +374,7 @@ import 'dart:typed_data';
 // Encrypt
 final result = AESGCM.encrypt(
   key: aesKey,      // 32 bytes from HKDF
-  nonce: aesNonce,  // 12 bytes from HKDF
+  nonce: aesNonce,  // 12 bytes, unique for every message under this key
   plaintext: Uint8List.fromList('Hello!'.codeUnits),
 );
 
@@ -369,12 +389,41 @@ final plaintext = AESGCM.decrypt(
 
 ---
 
+## Examples
+
+Runnable examples live in [`example/`](example/):
+
+| File | Demonstrates |
+|---|---|
+| [`example/example.dart`](example/example.dart) | full X256189 → HKDF → AES-256-GCM workflow, including negative cases |
+| [`example/ecdh_example.dart`](example/ecdh_example.dart) | X256189 key exchange and invalid-key rejection |
+| [`example/eddsa_example.dart`](example/eddsa_example.dart) | Ed256189 key generation, signing, verification, and rejection |
+| [`example/xeddsa_example.dart`](example/xeddsa_example.dart) | XEdDSA (superseded) signing and strict verification |
+| [`example/aes_gcm_example.dart`](example/aes_gcm_example.dart) | AES-256-GCM, AAD, and tamper rejection |
+| [`example/elligator_example.dart`](example/elligator_example.dart) | Elligator 2 encode/decode round trips |
+
+```bash
+dart run example/example.dart
+```
+
+The Ed256189 example uses the published `seed1/curve` vector, so its output can
+be checked against `test/ed256189_vectors.dart`.
+
+---
+
 ## Running Tests
 ```bash
 dart pub get
 dart test                  # full suite
 dart test -x slow          # skip the randomised and long-running tests
 dart test test/xeddsa_test.dart
+```
+
+CI additionally enforces formatting and package validation:
+
+```bash
+dart format --output=none --set-exit-if-changed .
+dart pub publish --dry-run
 ```
 
 | File | Covers |

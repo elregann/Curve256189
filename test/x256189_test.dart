@@ -26,8 +26,8 @@ void main() {
     });
 
     test('deterministic and seed-dependent', () {
-      expect(X256189.generateKeyPair(aliceSeed)['publicKey'],
-          alice['publicKey']);
+      expect(
+          X256189.generateKeyPair(aliceSeed)['publicKey'], alice['publicKey']);
       expect(alice['publicKey'], isNot(bob['publicKey']));
     });
 
@@ -45,10 +45,10 @@ void main() {
 
   group('shared secret', () {
     test('both sides agree and match the published vector', () {
-      final ab = X256189.computeSharedSecret(
-          alice['privateKey']!, bob['publicKey']!);
-      final ba = X256189.computeSharedSecret(
-          bob['privateKey']!, alice['publicKey']!);
+      final ab =
+          X256189.computeSharedSecret(alice['privateKey']!, bob['publicKey']!);
+      final ba =
+          X256189.computeSharedSecret(bob['privateKey']!, alice['publicKey']!);
       expect(ab, isNotNull);
       expect(ba, isNotNull);
       expect(ab, ba);
@@ -58,8 +58,8 @@ void main() {
     });
 
     test('shared secret is repeatable despite scalar blinding', () {
-      final first = X256189.computeSharedSecret(
-          alice['privateKey']!, bob['publicKey']!);
+      final first =
+          X256189.computeSharedSecret(alice['privateKey']!, bob['publicKey']!);
       for (var i = 0; i < 3; i++) {
         expect(
             X256189.computeSharedSecret(

@@ -31,7 +31,8 @@ void main() {
     });
 
     test('infinity <-> neutral element', () {
-      expect(TwistedEdwards.fromMontgomery(MontgomeryPoint.infinity()).isIdentity,
+      expect(
+          TwistedEdwards.fromMontgomery(MontgomeryPoint.infinity()).isIdentity,
           isTrue);
       expect(TwistedEdwards.toMontgomery(neutral).isInfinity, isTrue);
       expect(TwistedEdwards.isOnCurve(neutral), isTrue);
@@ -66,11 +67,15 @@ void main() {
   group('group law', () {
     test('known answers for 2G and 3G (computed independently in Python)', () {
       final g2 = TwistedEdwards.add(gEd, gEd);
-      expect(g2.x, big('48193487737828774689595840720804901209767354174254960152610859550694896955344'));
-      expect(g2.y, big('18084377074664411519307281192043837419640265458317718245545654128148883584435'));
+      expect(g2.x,
+          big('48193487737828774689595840720804901209767354174254960152610859550694896955344'));
+      expect(g2.y,
+          big('18084377074664411519307281192043837419640265458317718245545654128148883584435'));
       final g3 = TwistedEdwards.add(g2, gEd);
-      expect(g3.x, big('97872019178304299916789976022225806947462257696421013298267772176938297900336'));
-      expect(g3.y, big('61515282157655872155786392657175680064199191908799176873811854210006572012080'));
+      expect(g3.x,
+          big('97872019178304299916789976022225806947462257696421013298267772176938297900336'));
+      expect(g3.y,
+          big('61515282157655872155786392657175680064199191908799176873811854210006572012080'));
     });
 
     test('add agrees with scalarMul and with Montgomery arithmetic', () {
@@ -111,8 +116,8 @@ void main() {
         isTrue,
       );
       expect(TwistedEdwards.scalarMul(n, gEd).isIdentity, isTrue);
-      expect(TwistedEdwards.scalarMul(BigInt.from(5), neutral).isIdentity,
-          isTrue);
+      expect(
+          TwistedEdwards.scalarMul(BigInt.from(5), neutral).isIdentity, isTrue);
     });
 
     test('(a + b) G == aG + bG', () {
@@ -135,8 +140,8 @@ void main() {
     test('round trip for k * G, k = 1..20', () {
       for (var k = 1; k <= 20; k++) {
         final point = TwistedEdwards.scalarMul(BigInt.from(k), gEd);
-        final decoded = TwistedEdwards.decodePoint(
-            TwistedEdwards.encodePoint(point));
+        final decoded =
+            TwistedEdwards.decodePoint(TwistedEdwards.encodePoint(point));
         expect(decoded, isNotNull, reason: 'k=$k');
         expect(_same(decoded!, point), isTrue, reason: 'k=$k');
         expect(TwistedEdwards.isOnCurve(decoded), isTrue);
@@ -158,7 +163,8 @@ void main() {
 
     test('y >= p is rejected', () {
       expect(TwistedEdwards.decodePoint(_compressed(p, 0)), isNull);
-      expect(TwistedEdwards.decodePoint(_compressed(p + BigInt.one, 0)), isNull);
+      expect(
+          TwistedEdwards.decodePoint(_compressed(p + BigInt.one, 0)), isNull);
     });
 
     test('y without a square x^2 is rejected', () {
@@ -175,13 +181,13 @@ void main() {
       expect(odd.x.isOdd, isTrue);
       expect(even.x + odd.x, p);
       for (final b in [2, 4, 0x80, 0xfe]) {
-        expect(_same(TwistedEdwards.decodePoint(_compressed(y, b))!, even),
-            isTrue,
+        expect(
+            _same(TwistedEdwards.decodePoint(_compressed(y, b))!, even), isTrue,
             reason: 'byte=$b');
       }
       for (final b in [3, 5, 0x81, 0xff]) {
-        expect(_same(TwistedEdwards.decodePoint(_compressed(y, b))!, odd),
-            isTrue,
+        expect(
+            _same(TwistedEdwards.decodePoint(_compressed(y, b))!, odd), isTrue,
             reason: 'byte=$b');
       }
     });
@@ -264,13 +270,11 @@ void main() {
     test('addition is complete for every mixed-order pair in a grid', () {
       final montPoints = <MontgomeryPoint>[];
       for (var k = 0; k <= 10; k++) {
-        final kG =
-            Montgomery.scalarMulFull(BigInt.from(k), MontgomeryPoint.G);
+        final kG = Montgomery.scalarMulFull(BigInt.from(k), MontgomeryPoint.G);
         montPoints.add(kG);
         montPoints.add(Montgomery.add(kG, order2Mont));
       }
-      final edPoints =
-          montPoints.map(TwistedEdwards.fromMontgomery).toList();
+      final edPoints = montPoints.map(TwistedEdwards.fromMontgomery).toList();
       final dualPoints = montPoints.map(DualEdwards.fromMontgomery).toList();
 
       for (var i = 0; i < montPoints.length; i++) {
@@ -295,14 +299,15 @@ void main() {
       // The old law fails when Q - P is one of the two order-4 points.
       // Their sum is still affine, so the dual-curve route must succeed.
       for (final k in [1, 2, 3, 5, 7]) {
-        final point = Montgomery.scalarMulFull(BigInt.from(k), MontgomeryPoint.G);
+        final point =
+            Montgomery.scalarMulFull(BigInt.from(k), MontgomeryPoint.G);
         final other = Montgomery.add(point, order4Mont);
         expect(
           Montgomery.add(other, Montgomery.negate(point)).x,
           p - BigInt.one,
         );
-        final expected = TwistedEdwards.fromMontgomery(
-            Montgomery.add(point, other));
+        final expected =
+            TwistedEdwards.fromMontgomery(Montgomery.add(point, other));
         final got = TwistedEdwards.add(
           TwistedEdwards.fromMontgomery(point),
           TwistedEdwards.fromMontgomery(other),
