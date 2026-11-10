@@ -6,7 +6,7 @@ description: >
   signatures, Elligator 2, HKDF and AES-GCM. Pure Dart cryptography
   library.
 
-version: 1.0.0-beta.6
+version: 1.0.0-beta.7
 
 homepage: https://github.com/elregann/Curve256189
 repository: https://github.com/elregann/Curve256189

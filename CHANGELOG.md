@@ -1,3 +1,16 @@
+## 1.0.0-beta.7
+
+- **Withdrew the planned removal of XEdDSA.** Both signature schemes are now
+  documented as permanent, supported parts of the package. Ed256189 remains the
+  default for new signature-only designs; XEdDSA is the supported alternative
+  when one x-only key must serve both X256189 ECDH and signatures. The README,
+  `doc/xeddsa.md`, `doc/ed256189.md`, `SECURITY.md`, and the XEdDSA example no
+  longer describe XEdDSA as superseded or scheduled for removal.
+- CI now tests the declared minimum SDK (`3.0.0`) as well as the current
+  `stable` release, and a separate job runs `dart doc --dry-run` to catch broken
+  documentation references.
+- No API or cryptographic behaviour changes in this release.
+
 ## 1.0.0-beta.6
 
 - **Breaking: Curve256189 now uses `A = 61370`.** The Montgomery coefficient

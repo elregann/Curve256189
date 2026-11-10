@@ -1,8 +1,8 @@
 /// XEdDSA signatures on Curve256189.
 ///
-/// SUPERSEDED: XEdDSA is kept for backwards compatibility. New code should
-/// use Ed256189 instead (see eddsa_example.dart). XEdDSA will be removed in
-/// a future major release.
+/// XEdDSA is a supported alternative to Ed256189 when one x-only key must serve
+/// both X256189 ECDH and signatures (see eddsa_example.dart for Ed256189). Its
+/// 32-byte public key is the same key as the X256189 ECDH public key.
 ///
 /// XEdDSA is an x-only Schnorr-style scheme built on the Montgomery form:
 ///
@@ -19,7 +19,7 @@ import 'package:curve256189/curve256189.dart';
 
 void main() {
   print('');
-  print('Curve256189 XEdDSA signatures (superseded by Ed256189)');
+  print('Curve256189 XEdDSA signatures (x-only, shared with X256189)');
   print('=' * 55);
   print('');
 
@@ -86,7 +86,8 @@ void main() {
   print('Second signature equals the first: ${_bytesEqual(signature, second)}');
   print('');
 
-  print('This scheme is superseded. Use Ed256189 for new signatures.');
+  print('XEdDSA is supported. Use Ed256189 for signature-only designs;');
+  print('use XEdDSA when one x-only key must serve ECDH and signatures.');
   print('');
 }
 

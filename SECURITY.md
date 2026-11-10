@@ -50,8 +50,9 @@ These are properties of the current implementation, not hypothetical issues.
    verification scalars only.
 5. **Nonce management.** AES-GCM requires a unique nonce for every message under
    a key. The library does not track or enforce this; the caller must.
-6. **Superseded XEdDSA.** XEdDSA is kept for compatibility only. New designs
-   should use Ed256189.
+6. **Two signature schemes.** Ed256189 is the default for new signature-only
+   designs. XEdDSA is a supported alternative when one x-only key must serve
+   both X256189 ECDH and signatures. Neither scheme is deprecated.
 7. **Beta API and parameter stability.** The public API, and before `1.0.0` the
    wire formats, may change. The move from `A = 479597` to `A = 61370` was a
    breaking parameter change: keys, signatures and shared secrets are not

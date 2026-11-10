@@ -1,3 +1,8 @@
+/// Pure-Dart elliptic curve cryptography on Curve256189.
+///
+/// Provides X256189 ECDH, Ed256189 and XEdDSA signatures, Elligator 2,
+/// HKDF, and AES-256-GCM. See the package README for usage and the `doc/`
+/// directory for the specifications.
 library curve256189;
 
 // Export all source files

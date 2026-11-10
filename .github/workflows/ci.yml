@@ -7,14 +7,19 @@ on:
 
 jobs:
   test:
+    name: test (Dart ${{ matrix.sdk }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The declared minimum and the current stable release.
+        sdk: ['3.0.0', stable]
     steps:
       - uses: actions/checkout@v4
       - uses: dart-lang/setup-dart@v1
         with:
-          sdk: stable
+          sdk: ${{ matrix.sdk }}
       - run: dart pub get
-      - run: dart format --output=none --set-exit-if-changed .
       - run: dart analyze
       - run: dart test
       - name: Run examples
@@ -24,4 +29,18 @@ jobs:
             dart run "$file"
             echo "::endgroup::"
           done
+
+  lint:
+    name: format, docs, and package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+        with:
+          # Formatting is checked on stable only: the Dart 3.0 formatter uses
+          # the old style and would rewrite files formatted by newer SDKs.
+          sdk: stable
+      - run: dart pub get
+      - run: dart format --output=none --set-exit-if-changed .
+      - run: dart doc --dry-run
       - run: dart pub publish --dry-run
