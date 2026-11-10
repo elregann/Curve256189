@@ -11,7 +11,7 @@ void main() {
   });
 
   test('curve coefficients are consistent', () {
-    expect(Curve256189Params.A, BigInt.from(479597));
+    expect(Curve256189Params.A, BigInt.from(61370));
     expect(Curve256189Params.d, Curve256189Params.A - BigInt.two);
     expect(
       FieldElement.mul(Curve256189Params.a24, BigInt.from(4)),
@@ -30,13 +30,13 @@ void main() {
     expect(
       n,
       BigInt.parse(
-          '28948022309329048855892746252171976963257918617752773869725216245594308445583'),
+          '28948022309329048855892746252171976963404671476872247083542990644359122995957'),
     );
     // Hasse: |#E - (p + 1)| <= 2 sqrt(p), with #E = 4n and trace t.
     final trace = p + BigInt.one - BigInt.from(4) * n;
     expect(
       trace,
-      BigInt.parse('238310194629468560556719025535895857416'),
+      BigInt.parse('-348701241848424294714378569523362344080'),
     );
     expect(trace * trace < BigInt.from(4) * p, isTrue);
   });
@@ -67,7 +67,7 @@ void main() {
       twist,
       BigInt.from(4) *
           BigInt.parse(
-              '28948022309329048855892746252171976963377073715067508150003575758362256374291'),
+              '28948022309329048855892746252171976963230320855948034936185801359597441823917'),
     );
   });
 

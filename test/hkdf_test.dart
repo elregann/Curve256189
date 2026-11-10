@@ -39,12 +39,12 @@ void main() {
 
   group('derive', () {
     final shared = fromHex(
-        'a5ba314a475956d6a02d227c8ae094e673bf59eff0257e76f7d47c9e11ee6d3a');
+        '49dc0d93c74668da52553c6d981e60996b7bc9fae0930bedcc3e4e67bf57da86');
     final info = bytesOf('X256189 shared key');
 
     test('published X256189 + HKDF vector (default salt)', () {
       expect(toHex(HKDF.derive(ikm: shared, info: info)),
-          '55c8e6fdcbb611ef67fb69b6245f688a372828f56b78b5f6006d389ee215f6ba');
+          'a9bc7c6d77c1bb62f0193dc1f2267285a90fd58316a933fc79c2122e474ab3c0');
     });
 
     test('default salt is "Curve256189"', () {

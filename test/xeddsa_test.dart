@@ -24,7 +24,7 @@ void main() {
   group('key generation', () {
     test('published public key, equal to the X256189 key', () {
       expect(toHex(publicKey),
-          '337d3142bff70cdcbe04d69ee7b7a36c3e8df6bba0a5e0a12cb4b1b580bab424');
+          'b1b998018648e7195a06c1b8c6bd029c84d384be33673c010f83a960a1160275');
       expect(publicKey, X256189.generateKeyPair(seed)['publicKey']);
     });
 
@@ -78,8 +78,8 @@ void main() {
     test('published signature vector', () {
       expect(
         toHex(signature),
-        'c87e2d535cab5c2ede5993907c4c8d97aa6be84dd9de5b0b4b39e56d4d084284'
-        'ee7a80cfbff274f44f74b7a03b49b744c481f702a80c35a93ff03ad11cef142e',
+        '3f09322f361f003a7e0478f44c3d095a91e6bd5b3e55f5c806d57325a665b5f6'
+        '0e0659fb94c480fd0b1daa30d9e32118288a1e53acf2d872a80e53195311fc09',
       );
     });
 
@@ -233,13 +233,13 @@ void main() {
     });
 
     test('non-square x-coordinate is rejected', () {
-      // x = 3 has a non-square right-hand side on this curve.
-      final x3 = encodeLE32(BigInt.from(3));
+      // x = 4 has a non-square right-hand side on this curve.
+      final x4 = encodeLE32(BigInt.from(4));
       expect(
           XEdDSA.verify(
-              message, withSignature(x3, signature.sublist(32)), publicKey),
+              message, withSignature(x4, signature.sublist(32)), publicKey),
           isFalse);
-      expect(XEdDSA.verify(message, signature, x3), isFalse);
+      expect(XEdDSA.verify(message, signature, x4), isFalse);
     });
 
     test('x = p + 1 is rejected', () {

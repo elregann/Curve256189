@@ -64,7 +64,7 @@ void main() {
     test('the generator encoding is a known answer', () {
       expect(
         toHex(DualEdwards.encodePoint(gDual)),
-        '87a44512042fd91369d0005f710e89a7c6fbd4cb789c555f1a0962af259ebf2e00',
+        '37cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc01',
       );
     });
   });
@@ -112,9 +112,11 @@ void main() {
     });
 
     test('rejects v with no matching u', () {
-      // v = 2 gives u^2 = (1 - 4) / (a - 4d), which is not a square.
-      expect(DualEdwards.decodePoint(_pointEncoding(BigInt.two, 0)), isNull);
-      expect(DualEdwards.decodePoint(_pointEncoding(BigInt.two, 1)), isNull);
+      // v = 3 gives u^2 = (1 - 9) / (a - 9d), which is not a square.
+      expect(
+          DualEdwards.decodePoint(_pointEncoding(BigInt.from(3), 0)), isNull);
+      expect(
+          DualEdwards.decodePoint(_pointEncoding(BigInt.from(3), 1)), isNull);
     });
 
     test('handles the identity and the order-2 point', () {

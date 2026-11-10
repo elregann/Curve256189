@@ -8,7 +8,7 @@
 // RFC 8032 requires the signature curve to have a square coefficient a and a
 // non-square coefficient d. The natural Edwards form of Curve256189,
 //
-//     E_{a,d}: a x² + y² = 1 + d x² y²,   a = 479599, d = 479595,
+//     E_{a,d}: a x² + y² = 1 + d x² y²,   a = 61372, d = 61368,
 //
 // has a non-square a and a square d, so it is not admissible. The isomorphic
 // dual curve

@@ -57,7 +57,7 @@ is `u^((p+1)/4) mod p`.
 
 ```
 E: y² = x³ + A·x² + x
-A = 479597
+A = 61370
 ```
 
 The Montgomery curve is birationally equivalent to the twisted Edwards curve
@@ -68,18 +68,18 @@ in this scheme are Montgomery operations.
 
 ```
 #E = 4 · n
-n = 28948022309329048855892746252171976963257918617752773869725216245594308445583
+n = 28948022309329048855892746252171976963404671476872247083542990644359122995957
 ```
 
-`n` is prime and has 254 bits. The cofactor is `h = 4`. The group has the point
+`n` is prime and satisfies `2^254 < n < 2^255`. The cofactor is `h = 4`. The group has the point
 at infinity, one point of order 2, two points of order 4, and a prime-order
 subgroup of order `n`.
 
 ### 2.4 Generator
 
 ```
-Gx = 107794463287790729181798923754704247240057009056848862892287801730172665808003
-Gy = 5935226473593038842940459288042955305454636525326183552707973708623513097342
+Gx = 6
+Gy = 34517194831513652290546734430452415224722876045332401153182996255764394237320
 ```
 
 `G` is the standard Curve256189 base point. It has order `n`.
@@ -515,20 +515,24 @@ The vector matrix is 4 seeds × 4 messages:
 * seeds: `seed0`, `seed1`, `seed7`, and the Ed25519 test seed,
 * messages: empty, `"abc"`, `"Hello Curve256189!"`, and a 1000-byte pattern.
 
-The pre-existing anchor vector is preserved:
+The anchor vector for this parameter set is:
 
 ```
 seed      = 0102030405060708090a0b0c0d0e0f10
             1112131415161718191a1b1c1d1e1f20
 message   = 48656c6c6f20437572766532353631383921
             ("Hello Curve256189!")
-publicKey = 337d3142bff70cdcbe04d69ee7b7a36c
-            3e8df6bba0a5e0a12cb4b1b580bab424
-signature = c87e2d535cab5c2ede5993907c4c8d97
-            aa6be84dd9de5b0b4b39e56d4d084284
-            ee7a80cfbff274f44f74b7a03b49b744
-            c481f702a80c35a93ff03ad11cef142e
+publicKey = b1b998018648e7195a06c1b8c6bd029c
+            84d384be33673c010f83a960a1160275
+signature = 3f09322f361f003a7e0478f44c3d095a
+            91e6bd5b3e55f5c806d57325a665b5f6
+            0e0659fb94c480fd0b1daa30d9e32118
+            288a1e53acf2d872a80e53195311fc09
 ```
+
+This vector was regenerated when the curve coefficient moved from the earlier
+draft value `A = 479597` to the final `A = 61370`. It is the anchor for the
+current parameter set, not a continuation of the old one.
 
 Any change to key derivation, canonicalisation, nonce derivation, challenge
 construction, or signing must leave this vector unchanged. If it does not, the

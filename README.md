@@ -20,7 +20,8 @@ The parameters of Curve256189 were selected against explicit design criteria rat
 2. **Group order:** #E = 4 · n with n prime (cofactor h = 4).
 3. **Twist security:** the quadratic twist has order #Eᵗ = 4 · nᵗ with nᵗ prime (twist cofactor 4).
 4. **Ladder completeness:** A² − 4 is a quadratic non-residue modulo p. The Montgomery ladder is then complete, and the curve has exactly one point of order 2, which Elligator 2 requires.
-5. **Rigidity:** the coefficient A is fixed by a fully specified, transparent search procedure, with no unexplained constants.
+5. **Edwards completeness:** A − 2 is a quadratic residue (equivalently A + 2 is a non-residue, because A² − 4 is a non-residue), so the dual Edwards model E_{d,a} used by Ed256189 has a complete addition law.
+6. **Rigidity:** the coefficient A is the first hit of a fully specified, transparent deterministic scan from 0, with no unexplained constants.
 
 ### Field Selection
 
@@ -28,21 +29,27 @@ Candidates of the form p = 2²⁵⁶ − c were enumerated in order of increasin
 
 ### Coefficient Search
 
-With p fixed, the Montgomery coefficient A was determined by an exhaustive search over 0 ≤ A ≤ 10⁶. Since p ≡ 3 (mod 4), replacing A by −A exchanges the curve with its quadratic twist, so restricting the search to non-negative A is without loss of generality.
+With p fixed, the Montgomery coefficient A was determined by a deterministic scan over A = 0, 1, 2, … . Since p ≡ 3 (mod 4), replacing A by −A exchanges the curve with its quadratic twist, so restricting the scan to non-negative A is without loss of generality.
 
-For each candidate A, the group order #E and the twist order #Eᵗ were computed, and the cofactor pair (h, hᵗ) was recorded for all combinations with h, hᵗ ∈ {4, 8}: (4, 4), (4, 8), (8, 4) and (8, 8). A candidate was admissible if #E = h · n and #Eᵗ = hᵗ · nᵗ with n and nᵗ prime, and A² − 4 is a quadratic non-residue modulo p.
+For each candidate A, the group order #E and the twist order #Eᵗ were computed. A candidate was admissible when:
 
-Within the searched range, A = **479597** is the only value yielding the cofactor pair (4, 4). It is therefore the smallest admissible coefficient for the strictest cofactor profile, uniquely determined by the criteria above. The search required approximately two days of computation.
+- A² − 4 is a quadratic non-residue modulo p;
+- #E = 4 · n and #Eᵗ = 4 · nᵗ with n and nᵗ prime;
+- A − 2 is a quadratic residue (equivalently A + 2 is a non-residue), so the dual Edwards model E_{d,a} is complete.
+
+The first admissible value is A = **61370**. The scan is reproduced by `tool/find_A.sage`. The generator G is then fixed by the djb / RFC 7748 rule, adapted to cofactor 4: the smallest x ≥ 1 whose point has order n, taking the even y root.
+
+This is a first-hit selection, not a uniqueness claim over the whole range. Earlier drafts reported A = 479597 as the unique admissible coefficient in 0 ≤ A ≤ 10⁶; that uniqueness claim was incorrect, because A = 61370 is an earlier admissible coefficient under the same criteria. This version uses the first hit of the deterministic scan.
 
 ### Resulting Parameters
 
 | Parameter | Value |
 |---|---|
 | Prime p | 2²⁵⁶ − 189 |
-| Coefficient A | 479597 |
+| Coefficient A | 61370 |
 | Cofactor h | 4 |
 | Twist cofactor | 4 |
-| A² − 4 mod p | 230013282405 (non-square) |
+| A² − 4 mod p | 3766276896 (non-square) |
 
 The full parameter set, including the subgroup orders n and nᵗ and the generator G, is listed under [Curve Parameters](#curve-parameters).
 
@@ -54,12 +61,14 @@ The full parameter set, including the subgroup orders n and nᵗ and the generat
 |---|----------------------------------------------------------------------------------|
 | **Equation** | y² = x³ + Ax² + x                                                                |
 | **Prime p** | 2²⁵⁶ − 189                                                                        |
-| **Coefficient A** | 479597                                                                           |
-| **Subgroup order n** | 28948022309329048855892746252171976963257918617752773869725216245594308445583    |
+| **Coefficient A** | 61370                                                                            |
+| **Subgroup order n** | 28948022309329048855892746252171976963404671476872247083542990644359122995957    |
 | **Cofactor h** | 4                                                                                |
-| **Twist order** | 4 × 28948022309329048855892746252171976963377073715067508150003575758362256374291 |
-| **Generator Gx** | 107794463287790729181798923754704247240057009056848862892287801730172665808003   |
-| **Generator Gy** | 5935226473593038842940459288042955305454636525326183552707973708623513097342     |
+| **Twist order** | 4 × 28948022309329048855892746252171976963230320855948034936185801359597441823917 |
+| **Generator Gx** | 6                                                                                |
+| **Generator Gy** | 34517194831513652290546734430452415224722876045332401153182996255764394237320     |
+
+**Breaking change:** the coefficient is `A = 61370`. Keys, signatures, and shared secrets produced with the earlier draft value `A = 479597` are not compatible with this parameter set.
 
 ---
 
@@ -87,15 +96,15 @@ Curve256189 satisfies all 11 SafeCurves criteria, verified with SageMath:
 | # | Criterion | Detail | Status |
 | --- | --- | --- | --- |
 | 1 | Field | p = 2²⁵⁶ - 189 = 115792089237316195423570985008687907853269984665640564039457584007913129639747 = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff43 (prime, nearest form with c=189 < 2¹²⁸) | Pass |
-| 2 | Equation | y² = x³ + 479597x² + x, B(A²-4) mod p = 230013282405 ≠ 0 | Pass |
-| 3 | Base Point | G = (107794463287790729181798923754704247240057009056848862892287801730172665808003, 5935226473593038842940459288042955305454636525326183552707973708623513097342), n = 28948022309329048855892746252171976963257918617752773869725216245594308445583 = 0x3fffffffffffffffffffffffffffffffd32dc81090973cccf6191c1f9153858f (prime), n·G = ∞ | Pass |
+| 2 | Equation | y² = x³ + 61370x² + x, B(A²-4) mod p = 3766276896 ≠ 0 | Pass |
+| 3 | Base Point | G = (6, 34517194831513652290546734430452415224722876045332401153182996255764394237320), n = 28948022309329048855892746252171976963404671476872247083542990644359122995957 = 0x4000000000000000000000000000000041955aa52f59439b1a47b190eedd4af5 (prime), n·G = ∞ | Pass |
 | 4 | Rho | 0.886·√n ≈ 2¹²⁶·⁸ > 2¹⁰⁰ | Pass |
-| 5 | Transfer | Embedding degree = (ℓ-1)/2 = 14474011154664524427946373126085988481628959308876386934862608122797154222791, where ℓ = n | Pass |
-| 6 | Discriminant | Trace t = 238310194629468560556719025535895857416, \|D\| = 101594152021232398932927088336875798239142520126423777616574221809005679090483 = 0xe09c409782a1ccd7eb8fdca7674897ae051c794225ffd89fbba14ceb13b41b33 ≈ 2²⁵⁵·⁸ > 2¹⁰⁰ | Pass |
-| 7 | Rigidity | A = 479597 is the unique coefficient in 0 ≤ A ≤ 10⁶ with cofactors (4, 4), prime subgroup order and prime twist subgroup order; the exhaustive scan also covered (4, 8), (8, 4) and (8, 8) | Pass |
-| 8 | Ladder | A²-4 mod p = 230013282405 (non-square) | Pass |
-| 9 | Twist | Twist order = 115792089237316195423570985008687907853508294860270032600014303033449025497164 = 0x100000000000000000000000000000000b348dfbdbda30ccc279b8f81bab1e84c, twist cofactor = 4, twist subgroup order = 28948022309329048855892746252171976963377073715067508150003575758362256374291 (prime) | Pass |
-| 10 | Completeness | Montgomery ladder complete (A²-4 non-square); the affine twisted Edwards layer uses the dual curve E_{d,a}, whose standard addition law is complete because a' = d is a square and d' = a is a non-square | Pass |
+| 5 | Transfer | n ≠ p, and there is no embedding degree k ≤ 1000 (k > 1000); additive and multiplicative transfer are not applicable at practical sizes | Pass |
+| 6 | Discriminant | Trace t = -348701241848424294714378569523362344080, \|D\| = 85393950220657872762888265174989618040708991235949662744802537447685051878147 = 0xbccb4355e64bf786d2fb98098d7e7abecc3bd5d0265bf025a12de1f8f7278b03 ≈ 2²⁵⁵·⁵⁶ > 2¹⁰⁰ | Pass |
+| 7 | Rigidity | A = 61370 is the first hit of a deterministic scan from 0 with cofactors (4, 4), prime subgroup order, prime twist subgroup order, A²-4 non-square, and a complete dual Edwards model (A-2 square); reproduced by `tool/find_A.sage` | Pass |
+| 8 | Ladder | A²-4 mod p = 3766276896 (non-square) | Pass |
+| 9 | Twist | Twist order = 115792089237316195423570985008687907852921283423792139744743205438389767295668 = 0xfffffffffffffffffffffffffffffffef9aa956b429af19396e139bc448ad2b4, twist cofactor = 4, twist subgroup order = 28948022309329048855892746252171976963230320855948034936185801359597441823917 (prime) | Pass |
+| 10 | Completeness | Montgomery ladder complete (A²-4 non-square); the affine twisted Edwards layer uses the dual curve E_{d,a}, whose standard addition law is complete because a' = d = 61368 is a square and d' = a = 61372 is a non-square | Pass |
 | 11 | Indistinguishability | Elligator 2 applicable: A²-4 non-square, curve has a point of order 2 | Pass |
 
 **Total: 11/11 criteria met.**
@@ -110,8 +119,8 @@ Curve256189 has two birationally equivalent twisted Edwards models:
 
 | Model | Equation | Coefficients | Addition law |
 |---|---|---|---|
-| Natural (`E_{a,d}`) | `a x² + y² = 1 + d x² y²` | `a = A + 2 = 479599`, `d = A − 2 = 479595` | Incomplete |
-| Dual (`E_{d,a}`) | `d u² + v² = 1 + a u² v²` | `a' = d = 479595`, `d' = a = 479599` | Complete |
+| Natural (`E_{a,d}`) | `a x² + y² = 1 + d x² y²` | `a = A + 2 = 61372`, `d = A − 2 = 61368` | Incomplete |
+| Dual (`E_{d,a}`) | `d u² + v² = 1 + a u² v²` | `a' = d = 61368`, `d' = a = 61372` | Complete |
 
 Modulo `p`, the coefficient `a` is a quadratic non-residue and `d` is a quadratic residue, so the natural model is outside the Bernstein–Lange completeness condition. Its two points of order 4 lie at infinity in the affine `(x, y)` chart, and the standard addition law fails when the difference of the inputs is one of them, or when their sum is one of them.
 
@@ -156,17 +165,17 @@ The implementation relies on Dart's `BigInt`, whose arithmetic is not guaranteed
 ### Ed256189
 ```
 Seed:       000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f
-Public Key: bb25346e4368d99df536e9b492ba3e6792fdc5249eb5188edca81231013037b501
+Public Key: d9d17d95f9d83184c44697bfcca1cab7bdda20c9d6aade29ce7c4dffe495443e01
 Message:    (empty)
-Signature:  173244f1e9b34f299a509a60b9dd76d20cd759251e3feb76fdec242f07614de3
-            01306536c3a7f4365984bec0c141569872f1f246f2355f92d099ff05de2163293a
+Signature:  341616287279b7aefee0324944cfcdb23a087f2fa8b7653cd465886661317b2c
+            009a43064c25e56cf1d837bf1a79d32830aed4f40d9b8bfe1936c799e80f668c0b
 ```
 ```
 Seed:       000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f
-Public Key: bb25346e4368d99df536e9b492ba3e6792fdc5249eb5188edca81231013037b501
+Public Key: d9d17d95f9d83184c44697bfcca1cab7bdda20c9d6aade29ce7c4dffe495443e01
 Message:    "abc" (616263)
-Signature:  ac40e33f1de81b2eda3f0f588da0eef7603b126ef4400dfb6faf7292603bf7b2
-            0007cdd17f92e28a7f2724a65404bfb8897b40acae0841758fe7b3be747140630e
+Signature:  f9f76423b996bf12ad4bfb42dbfc00bc599fadcde5c0fe95a34e52f43005fb7e
+            0125589599f718b7080b4934032370053e9fb636dff0e1110cba01cd9052220620
 ```
 
 The public key is a 33-byte encoded point on `E_{d,a}` and the signature is
@@ -178,10 +187,10 @@ Ed448, or XEdDSA. The full 16-vector set is generated by
 ### XEdDSA (superseded)
 ```
 Seed:       0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20
-Public Key: 337d3142bff70cdcbe04d69ee7b7a36c3e8df6bba0a5e0a12cb4b1b580bab424
+Public Key: b1b998018648e7195a06c1b8c6bd029c84d384be33673c010f83a960a1160275
 Message:    "Hello Curve256189!"
-Signature:  c87e2d535cab5c2ede5993907c4c8d97aa6be84dd9de5b0b4b39e56d4d084284
-            ee7a80cfbff274f44f74b7a03b49b744c481f702a80c35a93ff03ad11cef142e
+Signature:  3f09322f361f003a7e0478f44c3d095a91e6bd5b3e55f5c806d57325a665b5f6
+            0e0659fb94c480fd0b1daa30d9e32118288a1e53acf2d872a80e53195311fc09
 ```
 
 The public key is identical to the X256189 key for the same seed, because both
@@ -193,18 +202,18 @@ EdDSA, and the same seed produces a different Ed256189 key. XEdDSA is
 ### X256189 (ECDH + HKDF)
 ```
 Alice Seed: 0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20
-Alice PK:   337d3142bff70cdcbe04d69ee7b7a36c3e8df6bba0a5e0a12cb4b1b580bab424
+Alice PK:   b1b998018648e7195a06c1b8c6bd029c84d384be33673c010f83a960a1160275
 Bob Seed:   2122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f40
-Bob PK:     6bf5338a759e576c61c6e3386630e3109c6826e05be16d1b8f954b48e2dd530e
-Shared:     a5ba314a475956d6a02d227c8ae094e673bf59eff0257e76f7d47c9e11ee6d3a
-HKDF key:   55c8e6fdcbb611ef67fb69b6245f688a372828f56b78b5f6006d389ee215f6ba
+Bob PK:     62bd3d3f9ccf01644be90c04884effff0e1198187a6d11731a9b53ff0bf0467c
+Shared:     49dc0d93c74668da52553c6d981e60996b7bc9fae0930bedcc3e4e67bf57da86
+HKDF key:   a9bc7c6d77c1bb62f0193dc1f2267285a90fd58316a933fc79c2122e474ab3c0
 ```
 
 ### Elligator 2
 ```
-encode(1)  = 38597363079105398474523661669562635951089994888546854679819194669304376226851
-encode(2)  = 90060513851245929773888543895646150552543321406609327586244787561710211515717
-encode(42) = 51481379431382575976079023938405023355562653992742999427007353161920005302563
+encode(1)  = 38597363079105398474523661669562635951089994888546854679819194669304376505669
+encode(2)  = 51463150772140531299364882226083514601453326518062472906425592892405835340892
+encode(42) = 53318828282980679388864508540413105769782863440540072701648788328948380688035
 ```
 
 ### AES-256-GCM (NIST SP 800-38D)
@@ -406,7 +415,7 @@ python tool/ed256189_vectors.py --dart test/ed256189_vectors.dart
 - **No `BigInt.modPow`:** Dart's `BigInt.modPow` returns wrong results for some structured 256-bit inputs, for example base `p - 1` or `(p - 1) / 2` (2253 of 5904 structured cases failed on one Dart SDK). Random inputs rarely trigger it. All modular exponentiation therefore uses the square-and-multiply implementation in `FieldElement.pow()`, which `test/field_test.dart` checks against known answers on structured and random inputs. Every exponent used in the library is a public constant, so branching on its bits does not leak secrets.
 - **Okeya-Sakurai y-recovery:** `Montgomery.scalarMulFull` uses the Okeya-Sakurai (2001) formula to recover a full point from the x-only ladder. The `[k+1]P = O` case is handled directly, and a double-and-add fallback covers any remaining degenerate input. Scalar blinding adds a random 64-bit multiple of `4n`, so it is correct for low-order and mixed-order points as well.
 - **Dual-curve Edwards addition:** the natural form `E_{a,d}` has a non-square `a` and a square `d`, so its standard addition law is incomplete. `TwistedEdwards.add` maps to the dual curve `E_{d,a}` through `Phi(x, y) = (-x, 1/y)`, adds with the complete law there, and maps back. Only a sum equal to an order-4 point, which has no affine coordinates, is rejected.
-- **Ed256189 signature curve:** RFC 8032 requires a square `a` and a non-square `d`. Curve256189's natural model has the opposite, so Ed256189 uses `E_{d,a}` and the generator `B = Phi(G)`. Because `p` is a full 256-bit prime there is no spare sign bit, so points are encoded as `LE(v, 32) || parity(u)` (33 bytes). `S < n < 2^254` is encoded in 32 bytes, giving 65-byte signatures.
+- **Ed256189 signature curve:** RFC 8032 requires a square `a` and a non-square `d`. Curve256189's natural model has the opposite, so Ed256189 uses `E_{d,a}` and the generator `B = Phi(G)`. Because `p` is a full 256-bit prime there is no spare sign bit, so points are encoded as `LE(v, 32) || parity(u)` (33 bytes). `S < n < 2^255` is encoded in 32 bytes, giving 65-byte signatures.
 - **Ed256189 key derivation:** `SHA-512(seed)` is split into a 32-byte scalar and a 32-byte prefix. The scalar is pruned for cofactor 4 (clear bits 0–1, clear bit 255, set bit 254), not reduced modulo `n`, and not multiplied by 4. Keys are therefore independent of X256189/XEdDSA keys for the same seed.
 - **Ed256189 nonce and challenge:** `r = SHA-512("Curve256189-Ed256189-v1" || 0x01 || prefix || counter || M) mod n` (4-byte little-endian counter, retried only if `r = 0`), and `k = SHA-512(domain || 0x02 || R || A || M) mod n`. Both hashes cover the domain string and tag explicitly.
 - **Ed256189 verification:** exact 33-byte public-key and 65-byte signature lengths, canonical `S < n`, canonical point encodings, non-identity prime-order subgroup checks for both `R` and `A`, and the exact equation `[S]B == R + [k]A`. Signatures are deterministic and non-malleable; malformed inputs return `false` instead of throwing.
@@ -420,7 +429,7 @@ python tool/ed256189_vectors.py --dart test/ed256189_vectors.dart
 
 | Item | Value |
 |---|---|
-| Signature curve | `E_{d,a}: d·u² + v² = 1 + a·u²·v²`, `a' = 479595`, `d' = 479599` |
+| Signature curve | `E_{d,a}: d·u² + v² = 1 + a·u²·v²`, `a' = 61368`, `d' = 61372` |
 | Generator | `B = Phi(G)` on `E_{d,a}` |
 | Domain separation | `Curve256189-Ed256189-v1`, tags `0x01` (nonce) and `0x02` (challenge) |
 | Secret derivation | `s = LE(SHA-512(seed)[0..32])` pruned for cofactor 4 |
@@ -479,4 +488,4 @@ MIT License. See [LICENSE](LICENSE).
 
 ---
 
-**Last updated:** 2026-11-08
+**Last updated:** 2026-11-10

@@ -8,11 +8,11 @@
 # =============================================================================
 
 p = 2**256 - 189
-A = 479597
-n = 28948022309329048855892746252171976963257918617752773869725216245594308445583
+A = 61370
+n = 28948022309329048855892746252171976963404671476872247083542990644359122995957
 h = 4
-Gx_mont = 107794463287790729181798923754704247240057009056848862892287801730172665808003
-Gy_mont = 5935226473593038842940459288042955305454636525326183552707973708623513097342
+Gx_mont = 6
+Gy_mont = 34517194831513652290546734430452415224722876045332401153182996255764394237320
 
 print("=" * 70)
 print(" " * 20 + "SafeCurves Compliance Test")
@@ -148,11 +148,12 @@ print()
 
 # -----------------------------------------------------------------------------
 # 7. RIGIDITY
-# The documented selection process is an exhaustive search over
-# 0 <= A <= 10^6 for the smallest A with cofactor pair (4, 4), prime subgroup
-# orders, and A^2 - 4 non-square. This script recomputes the admissibility
-# checks for the selected A. The expensive uniqueness search is documented in
-# README and is not repeated here.
+# The documented selection process is a deterministic scan from A = 0 for the
+# first A with cofactor pair (4, 4), prime subgroup orders, A^2 - 4 non-square,
+# and a complete dual Edwards model (A - 2 a square). This script recomputes
+# the admissibility checks for the selected A. The scan itself is reproduced
+# by tool/find_A.sage. The selected A is the first hit of that scan; no claim
+# of uniqueness over the whole range is made.
 # -----------------------------------------------------------------------------
 print("7. RIGIDITY")
 print("-" * 70)
@@ -170,6 +171,7 @@ rigidity_twist_n = rigidity_twist_order // rigidity_twist_h
 rigidity_cofactors_ok = rigidity_order_ok and rigidity_twist_order_ok
 rigidity_subgroups_ok = is_prime(rigidity_n) and is_prime(rigidity_twist_n)
 rigidity_nonsquare_ok = not Mod(A**2 - 4, p).is_square()
+rigidity_dual_ok = Mod(A - 2, p).is_square() and not Mod(A + 2, p).is_square()
 rigidity_in_range = 0 <= A <= rigidity_limit
 
 print(f"Selected A          = {A}")
@@ -179,12 +181,14 @@ print(f"Cofactor pair       = ({rigidity_order // rigidity_n}, {rigidity_twist_o
 print(f"Cofactors (4, 4)?   {'PASS' if rigidity_cofactors_ok else 'FAIL'}")
 print(f"Subgroups prime?    {'PASS' if rigidity_subgroups_ok else 'FAIL'}")
 print(f"A^2 - 4 non-square? {'PASS' if rigidity_nonsquare_ok else 'FAIL'}")
-print("Uniqueness          = established by the documented exhaustive search")
+print(f"Dual complete?      {'PASS' if rigidity_dual_ok else 'FAIL'}  (A - 2 square, A + 2 non-square)")
+print("Selection           = first admissible A in the deterministic scan from 0")
 rigid_ok = (
     rigidity_in_range
     and rigidity_cofactors_ok
     and rigidity_subgroups_ok
     and rigidity_nonsquare_ok
+    and rigidity_dual_ok
 )
 print(f"Admissibility       {'PASS' if rigid_ok else 'FAIL'}")
 print()
@@ -271,7 +275,7 @@ criteria = [
     ("Rho", rho_ok, f"2^{rho_bits:.1f} > 2^100"),
     ("Transfer", transfer_ok, f"n != p, k > 100"),
     ("Discriminant", disc_ok, f"|D| > 2^100"),
-    ("Rigidity", rigid_ok, "A admissible; uniqueness from documented search"),
+    ("Rigidity", rigid_ok, "A admissible; first hit of the deterministic scan"),
     ("Ladder", ladder_ok, f"A^2 - 4 non-square"),
     ("Twist", twist_ok, f"twist cofactor 4, twist subgroup prime"),
     ("Completeness", complete_ok, "Montgomery ladder and dual Edwards complete"),

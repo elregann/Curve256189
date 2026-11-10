@@ -232,7 +232,7 @@ class TwistedEdwards {
 // The natural Edwards form of Curve256189 is
 //
 //     E_{a,d}: a x² + y² = 1 + d x² y²,
-//     a = A + 2 = 479599,  d = A - 2 = 479595.
+//     a = A + 2 = 61372,  d = A - 2 = 61368.
 //
 // Here a is a quadratic non-residue and d is a quadratic residue, so the
 // standard addition law on E_{a,d} is incomplete: it fails when the difference

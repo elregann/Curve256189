@@ -12,9 +12,9 @@ void main() {
   group('encode', () {
     test('published test vectors', () {
       final vectors = {
-        1: '38597363079105398474523661669562635951089994888546854679819194669304376226851',
-        2: '90060513851245929773888543895646150552543321406609327586244787561710211515717',
-        42: '51481379431382575976079023938405023355562653992742999427007353161920005302563',
+        1: '38597363079105398474523661669562635951089994888546854679819194669304376505669',
+        2: '51463150772140531299364882226083514601453326518062472906425592892405835340892',
+        42: '53318828282980679388864508540413105769782863440540072701648788328948380688035',
       };
       vectors.forEach((t, want) {
         expect(Elligator.encode(BigInt.from(t)), big(want), reason: 't=$t');
@@ -57,20 +57,21 @@ void main() {
       expect(denom, BigInt.zero);
     });
 
-    test('encode returns -A, not the order-2 point', () {
+    test('-A is not on the curve, so encode returns the order-2 point', () {
+      // rhs(-A) = -A is a non-square for A = 61370, so RFC 9380 step 2 falls
+      // through to x2 = -x1 - A = 0.
+      expect(FieldElement.pow(minusA, (p - BigInt.one) >> 1), p - BigInt.one);
       for (final t in [t0, p - t0]) {
         final x = Elligator.encode(t);
-        expect(x, isNotNull);
-        expect(x, isNot(BigInt.zero));
-        expect(x, minusA);
-        expect(Montgomery.yFromX(x!), isNotNull);
+        expect(x, BigInt.zero);
+        expect(Montgomery.yFromX(x!), BigInt.zero);
       }
     });
 
-    test('decode(-A) returns the canonical t and round-trips', () {
+    test('decode(-A) returns the canonical t, but its image is x = 0', () {
       final decoded = Elligator.decode(minusA);
       expect(decoded, t0);
-      expect(Elligator.encode(decoded!), minusA);
+      expect(Elligator.encode(decoded!), BigInt.zero);
     });
   });
 
@@ -86,7 +87,7 @@ void main() {
     });
 
     test('t on the first branch decodes to itself', () {
-      for (final t in [12345678, 987654321]) {
+      for (final t in [12345677, 987654319]) {
         final x = Elligator.encode(BigInt.from(t))!;
         expect(Elligator.decode(x), BigInt.from(t));
       }
@@ -102,9 +103,9 @@ void main() {
           notDecodable++;
         }
       }
-      // 25 of the 58 points k * G, k = 2..59, are representable.
-      expect(decodable, 25);
-      expect(notDecodable, 33);
+      // 27 of the 58 points k * G, k = 2..59, are representable.
+      expect(decodable, 27);
+      expect(notDecodable, 31);
     });
 
     test('x = 0 is not decodable', () {

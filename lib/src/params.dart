@@ -9,38 +9,36 @@ class Curve256189Params {
       '115792089237316195423570985008687907853269984665640564039457584007913129639747');
 
   // Montgomery curve coefficient A
-  static final BigInt A = BigInt.from(479597);
+  static final BigInt A = BigInt.from(61370);
 
   // Precomputed Montgomery constant: (A + 2) / 4 mod p
-  static final BigInt a24 = BigInt.parse(
-      '86844066927987146567678238756515930889952488499230423029593188005934847349710');
+  static final BigInt a24 = BigInt.from(15343);
 
   // Twisted Edwards coefficient: a = A + 2
   static final BigInt aEd = A + BigInt.two;
 
   // Twisted Edwards coefficient d
-  static final BigInt d = BigInt.from(479595);
+  static final BigInt d = BigInt.from(61368);
 
   // Curve cofactor h
   static final int h = 4;
 
   // Prime order n of the main subgroup
   static final BigInt n = BigInt.parse(
-      '28948022309329048855892746252171976963257918617752773869725216245594308445583');
+      '28948022309329048855892746252171976963404671476872247083542990644359122995957');
 
   // Montgomery base point x-coordinate
-  static final BigInt gx = BigInt.parse(
-      '107794463287790729181798923754704247240057009056848862892287801730172665808003');
+  static final BigInt gx = BigInt.from(6);
 
   // Montgomery base point y-coordinate
   static final BigInt gy = BigInt.parse(
-      '5935226473593038842940459288042955305454636525326183552707973708623513097342');
+      '34517194831513652290546734430452415224722876045332401153182996255764394237320');
 
   // Twisted Edwards base point x-coordinate
   static final BigInt gxEd = BigInt.parse(
-      '62454605460742073543342701757224786493190389702282842860057684960145974238215');
+      '42295082034244311968184368205419199943447855438513562220070960560338748913112');
 
   // Twisted Edwards base point y-coordinate
   static final BigInt gyEd = BigInt.parse(
-      '50344289031653621710904814998481842241301136639183813561465471305870279522904');
+      '16541727033902313631938712144098272550467140666520080577065369143987589948536');
 }
